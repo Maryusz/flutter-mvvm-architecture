@@ -113,35 +113,69 @@ async function createBaseStructure(rootPath: string) {
 }
 
 async function createFeatureStructure(rootPath: string, featureName: string) {
-  const baseStructurePath = path.join(rootPath, "lib/ui");
-  if (!fs.existsSync(baseStructurePath)) {
-    throw new Error(
-      "The base structure is not present. Please run the command to create the base structure first."
-    );
+	const featureFolders = [
+	  `lib/ui/${featureName}/view_model`,
+	  `lib/ui/${featureName}/widgets`
+	];
+  
+	for (const folder of featureFolders) {
+	  const folderPath = path.join(rootPath, folder);
+	  await fs.promises.mkdir(folderPath, { recursive: true });
+	}
+  
+	// Create the code templates with the feature name
+	const className = capitalizeFeatureName(featureName);
+  
+	const viewModelContent = `
+  import 'package:flutter/material.dart';
+  
+  class ${className}ViewModel extends ChangeNotifier {
+	${className}ViewModel();
+	
+	// Add your ViewModel code here
   }
-  const featureFolders = [
-    `lib/ui/${featureName}/view_model`,
-    `lib/ui/${featureName}/widgets`,
-  ];
+  `;
+  
+	const screenContent = `
+  import 'package:flutter/material.dart';
+  import '../view_model/${featureName}_view_model.dart';
 
-  for (const folder of featureFolders) {
-    const folderPath = path.join(rootPath, folder);
-    await fs.promises.mkdir(folderPath, { recursive: true });
+  
+  class ${className}Screen extends StatelessWidget {
+	final ${className}ViewModel viewModel;
+  
+	const ${className}Screen({super.key, required this.viewModel});
+  
+	@override
+	Widget build(BuildContext context) {
+	  return const Scaffold();
+	}
+  }
+  `;
+  
+	// Paths to the files
+	const viewModelFile = path.join(
+	  rootPath,
+	  `lib/ui/${featureName}/view_model/${featureName}_view_model.dart`
+	);
+	const screenFile = path.join(
+	  rootPath,
+	  `lib/ui/${featureName}/widgets/${featureName}_screen.dart`
+	);
+  
+	// Write the content to the files
+	await fs.promises.writeFile(viewModelFile, viewModelContent, { flag: 'w' });
+	await fs.promises.writeFile(screenFile, screenContent, { flag: 'w' });
   }
 
-  // Create specific files for the feature
-  const viewModelFile = path.join(
-    rootPath,
-    `lib/ui/${featureName}/view_model/${featureName}_view_model.dart`
-  );
-  const screenFile = path.join(
-    rootPath,
-    `lib/ui/${featureName}/widgets/${featureName}_screen.dart`
-  );
-
-  await fs.promises.writeFile(viewModelFile, "", { flag: "w" });
-  await fs.promises.writeFile(screenFile, "", { flag: "w" });
-}
+  function capitalizeFeatureName(name: string): string {
+	return name
+	  .split('_')
+	  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+	  .join('');
+  }
+  
+  
 
 // This method is called when your extension is deactivated
 export function deactivate() {}

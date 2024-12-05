@@ -2,7 +2,7 @@
   "name": "flutter-mvvm-architecture",
   "displayName": "Flutter MVVM Architecture",
   "description": "This extension creates a base folder structure as suggested by the MVVM architecture guide by the Flutter team.",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "engines": {
     "vscode": "^1.95.0"
   },

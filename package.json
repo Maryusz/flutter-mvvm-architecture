@@ -5,29 +5,35 @@
   "version": "1.0.0",
   "publisher": "",
   "icon": "assets/circuit-icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Maryusz/flutter-mvvm-architecture"
+  },
+  "bugs": {
+    "url": "https://github.com/Maryusz/flutter-mvvm-architecture/issues"
+  },
+  "homepage": "https://github.com/Maryusz/flutter-mvvm-architecture",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.95.0"
   },
   "categories": [
     "Other"
   ],
-  "activationEvents": [
-  
-],
+  "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
-  "commands": [
-    {
-      "command": "mvvmFlutterArchitecture.createBaseStructure",
-      "title": "MVVM Flutter: Create Base Structure"
-    },
-    {
-      "command": "mvvmFlutterArchitecture.createFeature",
-      "title": "MVVM Flutter: Create Feature Inside Base Structure"
-    }
-  ]
-},
-
+    "commands": [
+      {
+        "command": "mvvmFlutterArchitecture.createBaseStructure",
+        "title": "MVVM Flutter: Create Base Structure"
+      },
+      {
+        "command": "mvvmFlutterArchitecture.createFeature",
+        "title": "MVVM Flutter: Create Feature Inside Base Structure"
+      }
+    ]
+  },
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",

@@ -1,7 +1,7 @@
 # Flutter MVVM architecture extension
 
 This extension for Visual Studio Code helps you create an MVVM structure for Flutter projects ass suggested by the latest guide you can find here:
-[a link] (https://docs.flutter.dev/app-architecture/case-study)
+[MVVM Flutter guide](https://docs.flutter.dev/app-architecture/case-study)
 
 ## Available Commands
 
@@ -13,7 +13,7 @@ This extension for Visual Studio Code helps you create an MVVM structure for Flu
 
   Adds a new functionality to the existing structure. You will be asked to enter the feature name.
 
-##Come and Use
+## Come and Use
 
 1. **Create the Basic Structure**
 
@@ -29,7 +29,7 @@ This extension for Visual Studio Code helps you create an MVVM structure for Flu
    - Enter the function name when prompted.
    - The framework for the new functionality will be added to the project.
 
-##Requirements
+## Requirements
 
 - Installation of Node.js and NPM.
 - Visual Studio Code.

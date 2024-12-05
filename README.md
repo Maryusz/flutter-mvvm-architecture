@@ -24,7 +24,7 @@ This extension for Visual Studio Code helps you create an MVVM structure for Flu
 2. **Add a New Feature**
 
    - Make sure the basic structure has been created.
-   -Open the command palette.
+   - Open the command palette.
    - Search and select **"MVVM Flutter: Create Feature"**.
    - Enter the function name when prompted.
    - The framework for the new functionality will be added to the project.

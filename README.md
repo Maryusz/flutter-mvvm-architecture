@@ -1,3 +1,5 @@
+![Icon](https://github.com/Maryusz/flutter-mvvm-architecture/blob/master/assets/circuit-icon.png)
+
 # Flutter MVVM architecture extension
 
 This extension for Visual Studio Code helps you create an MVVM structure for Flutter projects as suggested by the latest guide you can find here:

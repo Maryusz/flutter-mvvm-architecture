@@ -70,8 +70,36 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // Command to create the base configuration for providers and assets
+  let createBaseConfigurationCmd = vscode.commands.registerCommand(
+    "mvvmFlutterArchitecture.createBaseConfiguration",
+    async () => {
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (!workspaceFolders) {
+        vscode.window.showErrorMessage(
+          "Open a workspace folder before running this command."
+        );
+        return;
+      }
+
+      const rootPath = workspaceFolders[0].uri.fsPath;
+
+      try {
+        await createBaseConfiguration(rootPath);
+        vscode.window.showInformationMessage(
+          "Base configuration added with succcess!"
+        );
+      } catch (error) {
+        vscode.window.showErrorMessage(
+          `Error while creating the configuration: ${error}`
+        );
+      }
+    }
+  );
+
   context.subscriptions.push(createBaseStructureCmd);
   context.subscriptions.push(createFeatureCmd);
+  context.subscriptions.push(createBaseConfigurationCmd);
 }
 
 async function createBaseStructure(rootPath: string) {
@@ -96,7 +124,7 @@ async function createBaseStructure(rootPath: string) {
   const files = [
     "lib/main_staging.dart",
     "lib/main_development.dart",
-    "lib/main.dart",
+    "lib/main.dart"
   ];
 
   for (const folder of folders) {
@@ -113,30 +141,30 @@ async function createBaseStructure(rootPath: string) {
 }
 
 async function createFeatureStructure(rootPath: string, featureName: string) {
-	const featureFolders = [
-	  `lib/ui/${featureName}/view_model`,
-	  `lib/ui/${featureName}/widgets`
-	];
-  
-	for (const folder of featureFolders) {
-	  const folderPath = path.join(rootPath, folder);
-	  await fs.promises.mkdir(folderPath, { recursive: true });
-	}
-  
-	// Create the code templates with the feature name
-	const className = capitalizeFeatureName(featureName);
-  
-	const viewModelContent = `
+  const featureFolders = [
+    `lib/ui/${featureName}/view_model`,
+    `lib/ui/${featureName}/widgets`,
+  ];
+
+  for (const folder of featureFolders) {
+    const folderPath = path.join(rootPath, folder);
+    await fs.promises.mkdir(folderPath, { recursive: true });
+  }
+
+  // Create the code templates with the feature name
+  const className = capitalizeFeatureName(featureName);
+
+  const viewModelContent = `
   import 'package:flutter/material.dart';
   
   class ${className}ViewModel extends ChangeNotifier {
-	${className}ViewModel();
+	  ${className}ViewModel();
 	
-	// Add your ViewModel code here
+	  // Add your ViewModel code here
   }
   `;
-  
-	const screenContent = `
+
+  const screenContent = `
   import 'package:flutter/material.dart';
   import '../view_model/${featureName}_view_model.dart';
 
@@ -148,34 +176,96 @@ async function createFeatureStructure(rootPath: string, featureName: string) {
   
 	@override
 	Widget build(BuildContext context) {
-	  return const Scaffold();
-	}
+	  return Scaffold();
+	  }
   }
   `;
-  
-	// Paths to the files
-	const viewModelFile = path.join(
-	  rootPath,
-	  `lib/ui/${featureName}/view_model/${featureName}_view_model.dart`
-	);
-	const screenFile = path.join(
-	  rootPath,
-	  `lib/ui/${featureName}/widgets/${featureName}_screen.dart`
-	);
-  
-	// Write the content to the files
-	await fs.promises.writeFile(viewModelFile, viewModelContent, { flag: 'w' });
-	await fs.promises.writeFile(screenFile, screenContent, { flag: 'w' });
+
+  // Paths to the files
+  const viewModelFile = path.join(
+    rootPath,
+    `lib/ui/${featureName}/view_model/${featureName}_view_model.dart`
+  );
+  const screenFile = path.join(
+    rootPath,
+    `lib/ui/${featureName}/widgets/${featureName}_screen.dart`
+  );
+
+  // Write the content to the files
+  await fs.promises.writeFile(viewModelFile, viewModelContent, { flag: "w" });
+  await fs.promises.writeFile(screenFile, screenContent, { flag: "w" });
+}
+
+async function createBaseConfiguration(rootPath: string) {
+
+  // Adds two files into config folder
+  // dependencies.dart handle providers and change notifiers
+  // assets.dart handle... assets
+  const configFolders = [
+    "lib/config",
+  ];
+
+  for (const folder of configFolders) {
+    const folderPath = path.join(rootPath, folder);
+    await fs.promises.mkdir(folderPath, { recursive: true });
   }
 
-  function capitalizeFeatureName(name: string): string {
-	return name
-	  .split('_')
-	  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-	  .join('');
-  }
-  
-  
+  const dependenciesContent = `
+import 'package:provider/single_child_widget.dart';
+
+//! Add Provider to your pubspect.yaml file
+
+/// Shared providers for all configurations.
+List<SingleChildWidget> _sharedProviders = [];
+
+List<SingleChildWidget> get providersRemote {
+  return [
+    //! Add your remote providers here
+    ..._sharedProviders,
+  ];
+}
+
+List<SingleChildWidget> get providersLocal {
+  return [
+    //! Add your local providers here
+    ..._sharedProviders,
+  ];
+}
+
+  `;
+
+  // Paths to the files
+  const dependenciesFile = path.join(
+    rootPath,
+    `lib/config/dependencies.dart`
+  );
+
+  const assetsContent = `
+abstract final class Assets {
+  // static const asset_one = 'assets/asset_file.extension';
+  // static const asset_two = 'assets/asset_file.extension';
+}
+  `;
+
+  const assetsFile = path.join(
+    rootPath,
+    `lib/config/assets.dart`
+  );
+
+  // Write the content to the files
+  await fs.promises.writeFile( dependenciesFile, dependenciesContent, { flag: "w" });
+  await fs.promises.writeFile( assetsFile, assetsContent, { flag: "w" });
+
+}
+
+async function createRoutingConfiguration(rootPath: string) {}
+
+function capitalizeFeatureName(name: string): string {
+  return name
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join("");
+}
 
 // This method is called when your extension is deactivated
 export function deactivate() {}

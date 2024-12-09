@@ -2,7 +2,7 @@
   "name": "flutter-mvvm-architecture",
   "displayName": "Flutter MVVM Architecture",
   "description": "This extension creates a base folder structure as suggested by the MVVM architecture guide by the Flutter team.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "Maryusz",
   "icon": "assets/circuit-icon.png",
   "repository": {
@@ -26,11 +26,15 @@
     "commands": [
       {
         "command": "mvvmFlutterArchitecture.createBaseStructure",
-        "title": "MVVM Flutter: Create Base Structure"
+        "title": "MVVM Flutter: Create structure"
       },
       {
         "command": "mvvmFlutterArchitecture.createFeature",
-        "title": "MVVM Flutter: Create Feature Inside Base Structure"
+        "title": "MVVM Flutter: Create Feature"
+      },
+      {
+        "command": "mvvmFlutterArchitecture.createBaseConfiguration",
+        "title": "MVVM Flutter: Create Base Configuration"
       }
     ]
   },

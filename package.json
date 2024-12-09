@@ -25,12 +25,16 @@
   "contributes": {
     "commands": [
       {
-        "command": "mvvmFlutterArchitecture.createBaseStructure",
-        "title": "MVVM Flutter: Create structure"
+        "command": "mvvmFlutterArchitecture.createProjectStructure",
+        "title": "MVVM Flutter: Create Project Structure"
       },
       {
-        "command": "mvvmFlutterArchitecture.createFeature",
-        "title": "MVVM Flutter: Create Feature"
+        "command": "mvvmFlutterArchitecture.createFeatureInPresentationLayer",
+        "title": "MVVM Flutter: Create Feature in Presentation Layer"
+      },
+      {
+        "command": "mvvmFlutterArchitecture.createFeatureInAllLayers",
+        "title": "MVVM Flutter: Create Feature in All Layers"
       },
       {
         "command": "mvvmFlutterArchitecture.createBaseConfiguration",

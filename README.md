@@ -32,10 +32,25 @@ This extension was created with the help of ChatGPT for the sole purpose of simp
    - Enter the function name when prompted.
    - The new feature will be added into the ui folder
 
+3. **Create base configuration**
+   - Open the command palette (`Ctrl+Shift+P` or `Cmd+Shift+P`).
+   - Search and select **"MVVM Flutter: Create Base Configuration"**
+   - If the \config directory doesn't exist it will be created
+   - Inside it two files will be added (`assets.dart` and `dependencies.dart`). 
+
+4. **Create Base Routing**
+   - Open the command palette (`Ctrl+Shift+P` or `Cmd+Shift+P`).
+   - Search and select **"MVVM Flutter: Create Base Routing"**
+   - If the \routing directory doesn't exist it will be created
+   - Inside it two files will be added (`router.dart` and `routes.dart`). 
+
 ## Requirements
 
 - Installation of Node.js and NPM.
 - Visual Studio Code.
+
+## Todo
+- Add additional way to add features (for each feature a indipendent directory will be added to each layer of the architecture)
 
 ## Contribute
 

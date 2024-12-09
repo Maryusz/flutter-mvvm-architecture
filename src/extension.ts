@@ -97,9 +97,37 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // Command to create the base configuration for providers and assets
+  let createBaseRoutingCmd = vscode.commands.registerCommand(
+    "mvvmFlutterArchitecture.createBaseRouting",
+    async () => {
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (!workspaceFolders) {
+        vscode.window.showErrorMessage(
+          "Open a workspace folder before running this command."
+        );
+        return;
+      }
+
+      const rootPath = workspaceFolders[0].uri.fsPath;
+
+      try {
+        await createBaseRouting(rootPath);
+        vscode.window.showInformationMessage(
+          "Base routing added with succcess!"
+        );
+      } catch (error) {
+        vscode.window.showErrorMessage(
+          `Error while creating basic routing: ${error}`
+        );
+      }
+    }
+  );
+
   context.subscriptions.push(createBaseStructureCmd);
   context.subscriptions.push(createFeatureCmd);
   context.subscriptions.push(createBaseConfigurationCmd);
+  context.subscriptions.push(createBaseRoutingCmd);
 }
 
 async function createBaseStructure(rootPath: string) {
@@ -258,7 +286,41 @@ abstract final class Assets {
 
 }
 
-async function createRoutingConfiguration(rootPath: string) {}
+async function createBaseRouting(rootPath: string) {
+  const routingFolders = [
+    "lib/routing",
+  ];
+
+  for (const folder of routingFolders) {
+    const folderPath = path.join(rootPath, folder);
+    await fs.promises.mkdir(folderPath, { recursive: true });
+  }
+
+  const routerContent = `
+//! Add your router configuration here
+  `;
+
+  const routerFile = path.join(
+    rootPath,
+    `lib/routing/router.dart`
+  );
+
+  const routesContent = `
+abstract final class Routes {
+  static const home = '/';
+  // Add your routes here
+}`;
+
+  const routesFile = path.join(
+    rootPath,
+    `lib/routing/routes.dart`
+  );
+
+
+  await fs.promises.writeFile( routerFile, routerContent, { flag: "w" });
+  await fs.promises.writeFile( routesFile, routesContent, { flag: "w" });
+
+}
 
 function capitalizeFeatureName(name: string): string {
   return name

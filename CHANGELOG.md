@@ -4,6 +4,12 @@ All notable changes to the "flutter-mvvm-architecture" extension will be documen
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
-## [Unreleased]
+## 1.0.1
 
-- Initial release
+- Initial release 
+
+## 1.2.0
+
+- Added Create route command
+- Added Create config command
+- Minor adjustments 

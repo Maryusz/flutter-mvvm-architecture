@@ -13,3 +13,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 - Added Create route command
 - Added Create config command
 - Minor adjustments 
+
+## 1.3.1
+- More clear names given to commands
+- Added Create Feature In All Layers

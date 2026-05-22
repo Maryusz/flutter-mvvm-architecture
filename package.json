@@ -41,6 +41,10 @@
         "title": "MVVM Flutter: Create Clean Riverpod Feature (No Codegen)"
       },
       {
+        "command": "mvvmFlutterArchitecture.showArchitectureDiagram",
+        "title": "MVVM Flutter: Show State Diagram (Architecture Map)"
+      },
+      {
         "command": "mvvmFlutterArchitecture.createBaseConfiguration",
         "title": "MVVM Flutter: Create Base Configuration"
       },

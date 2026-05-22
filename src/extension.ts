@@ -1,4 +1,6 @@
 import * as vscode from "vscode";
+import * as fs from "fs";
+import * as path from "path";
 import {
   createProjectStructure,
   createFeatureInPresentationLayer,
@@ -7,7 +9,103 @@ import {
   createBaseRouting,
 } from "./generators/mvvm_generator";
 import { createCleanRiverpodFeature } from "./generators/clean_riverpod_generator";
+import { StateDiagramPanel } from "./panels/state_diagram_panel";
 import { deduceSingular, toPascalCase } from "./utils/string";
+
+function isLikelyFlutterProject(rootPath: string): boolean {
+  const hasLib = fs.existsSync(path.join(rootPath, "lib"));
+  const hasPubspec = fs.existsSync(path.join(rootPath, "pubspec.yaml"));
+  return hasLib && hasPubspec;
+}
+
+function findFlutterRootFromPath(startPath: string): string | null {
+  let current = fs.existsSync(startPath) && fs.statSync(startPath).isDirectory()
+    ? startPath
+    : path.dirname(startPath);
+
+  while (true) {
+    if (isLikelyFlutterProject(current)) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) { break; }
+    current = parent;
+  }
+
+  return null;
+}
+
+function findNestedFlutterProjects(rootPath: string, maxDepth: number): string[] {
+  const results: string[] = [];
+  const excluded = new Set([".git", ".idea", ".vscode", "node_modules", "build", "out", "dist", ".dart_tool"]);
+
+  function visit(dir: string, depth: number) {
+    if (isLikelyFlutterProject(dir)) {
+      results.push(dir);
+      return;
+    }
+    if (depth >= maxDepth) { return; }
+
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) { continue; }
+      if (excluded.has(entry.name)) { continue; }
+      visit(path.join(dir, entry.name), depth + 1);
+    }
+  }
+
+  visit(rootPath, 0);
+  return results;
+}
+
+async function resolveFlutterRootPath(workspaceFolders: readonly vscode.WorkspaceFolder[]): Promise<string | null> {
+  const activeUri = vscode.window.activeTextEditor?.document.uri;
+  if (activeUri && activeUri.scheme === "file") {
+    const activeFilePath = activeUri.fsPath;
+    const fromActive = findFlutterRootFromPath(activeFilePath);
+    if (fromActive) {
+      return fromActive;
+    }
+  }
+
+  const detected = workspaceFolders.find((folder) =>
+    isLikelyFlutterProject(folder.uri.fsPath)
+  );
+  if (detected) {
+    return detected.uri.fsPath;
+  }
+
+  const nestedCandidates = workspaceFolders.flatMap((folder) =>
+    findNestedFlutterProjects(folder.uri.fsPath, 4)
+  );
+
+  if (nestedCandidates.length === 0) {
+    return null;
+  }
+  if (nestedCandidates.length === 1) {
+    return nestedCandidates[0];
+  }
+
+  const selected = await vscode.window.showQuickPick(
+    nestedCandidates.map((candidate) => ({
+      label: path.basename(candidate),
+      description: candidate,
+      candidate,
+    })),
+    {
+      placeHolder: "Multiple Flutter projects found. Select one for the inspector.",
+      canPickMany: false,
+    }
+  );
+
+  return selected?.candidate ?? null;
+}
 
 export function activate(context: vscode.ExtensionContext) {
   // Base project structure configuration
@@ -164,6 +262,28 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // Command to show architectural dependency state diagram webview
+  let showArchitectureDiagramCmd = vscode.commands.registerCommand(
+    "mvvmFlutterArchitecture.showArchitectureDiagram",
+    async () => {
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (!workspaceFolders) {
+        vscode.window.showErrorMessage(
+          "Open a workspace folder before running this command."
+        );
+        return;
+      }
+      const rootPath = await resolveFlutterRootPath(workspaceFolders);
+      if (!rootPath) {
+        vscode.window.showErrorMessage(
+          "No Flutter project detected in the current workspace. Open the folder that contains pubspec.yaml and lib/."
+        );
+        return;
+      }
+      StateDiagramPanel.createOrShow(context.extensionUri, rootPath);
+    }
+  );
+
   // Configuration command
   let createBaseConfigurationCmd = vscode.commands.registerCommand(
     "mvvmFlutterArchitecture.createBaseConfiguration",
@@ -218,9 +338,11 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(createFeatureInPresentationLayerCmd);
   context.subscriptions.push(createFeatureInAllLayersCmd);
   context.subscriptions.push(createCleanRiverpodFeatureCmd);
+  context.subscriptions.push(showArchitectureDiagramCmd);
   context.subscriptions.push(createBaseConfigurationCmd);
   context.subscriptions.push(createBaseRoutingCmd);
 }
 
 export function deactivate() {}
+
 

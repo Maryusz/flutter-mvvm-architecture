@@ -82,9 +82,19 @@ class Remote${classPlural}Datasource implements ${classSingular}Datasource {
 `;
 
   // 5. Repository Abstract and Concrete implementation
-  files[`lib/features/${featurePlural}/domain/${featurePlural}_repository.dart`] = `import '../data/${featurePlural}_datasource_interface.dart';
+  files[`lib/features/${featurePlural}/domain/${featurePlural}_repository.dart`] = `import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/${featurePlural}_datasource_interface.dart';
 import '../data/local/local_${featurePlural}_datasource.dart';
 import '../data/remote/remote_${featurePlural}_datasource.dart';
+
+final ${featureSingular}RepositoryProvider = Provider<${classPlural}Repository>((ref) {
+  final localDs = ref.watch(local${classPlural}DatasourceProvider);
+  final remoteDs = ref.watch(remote${classPlural}DatasourceProvider);
+  return ${classPlural}RepositoryImpl(
+    localDatasource: localDs,
+    remoteDatasource: remoteDs,
+  );
+});
 
 abstract class ${classPlural}Repository {
 }
@@ -105,17 +115,6 @@ class ${classPlural}RepositoryImpl implements ${classPlural}Repository {
   files[`lib/features/${featurePlural}/presentation/providers/${featurePlural}_state_provider.dart`] = `import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/${featureSingular}.dart';
 import '../../domain/${featurePlural}_repository.dart';
-import '../../data/local/local_${featurePlural}_datasource.dart';
-import '../../data/remote/remote_${featurePlural}_datasource.dart';
-
-final ${featureSingular}RepositoryProvider = Provider<${classPlural}Repository>((ref) {
-  final localDs = ref.watch(local${classPlural}DatasourceProvider);
-  final remoteDs = ref.watch(remote${classPlural}DatasourceProvider);
-  return ${classPlural}RepositoryImpl(
-    localDatasource: localDs,
-    remoteDatasource: remoteDs,
-  );
-});
 
 final ${featurePlural}StateProvider =
     AsyncNotifierProvider<${classPlural}Notifier, List<${classSingular}>>(${classPlural}Notifier.new);

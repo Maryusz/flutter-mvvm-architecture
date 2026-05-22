@@ -446,6 +446,8 @@ function _renderMap(data){
   var globals=nodes.filter(function(n){return n.group==='global_provider';});
   var COLS=Math.min(3,features.length||1);
   var pos={};
+  var nodeById={};
+  nodes.forEach(function(n){ nodeById[n.id]=n; });
 
   features.forEach(function(n,i){
     var col=i%COLS, row=Math.floor(i/COLS);
@@ -453,21 +455,33 @@ function _renderMap(data){
   });
 
   var featureRows=Math.ceil(features.length/COLS);
-  var gStartX=COLS*(NW+HG)+40;
+  var featureHeight=featureRows*(NH+VG);
+  var globalStartY=featureHeight+24;
+  var globalCols=Math.max(1,Math.min(COLS,globals.length||1));
   globals.forEach(function(n,i){
-    pos[n.id]={x:gStartX, y:i*(NH+VG)+10};
+    var gCol=i%globalCols, gRow=Math.floor(i/globalCols);
+    pos[n.id]={x:gCol*(NW+HG)+10, y:globalStartY+gRow*(NH+VG)};
   });
 
-  var totalH=Math.max(featureRows*(NH+VG)+20, globals.length*(NH+VG)+20, 200);
-  var totalW=globals.length>0 ? gStartX+NW+20 : COLS*(NW+HG)+20;
+  var globalRows=Math.ceil(globals.length/globalCols);
+  var totalH=Math.max(featureHeight+globalRows*(NH+VG)+34, 200);
+  var totalW=Math.max(COLS,globalCols)*(NW+HG)+20;
 
   // SVG edges
   var svgPaths='';
   edges.forEach(function(e){
     var fp=pos[e.from],tp=pos[e.to];
     if(!fp||!tp)return;
+    var fromNode=nodeById[e.from],toNode=nodeById[e.to];
+    var involvesGlobal=(fromNode&&fromNode.group==='global_provider')||(toNode&&toNode.group==='global_provider');
     var x1,y1,x2,y2;
-    if(fp.x+NW <= tp.x){x1=fp.x+NW;y1=fp.y+NH/2;x2=tp.x;y2=tp.y+NH/2;}
+    if(involvesGlobal){
+      x1=fp.x+NW/2;
+      x2=tp.x+NW/2;
+      if(fp.y<=tp.y){y1=fp.y+NH;y2=tp.y;}
+      else{y1=fp.y;y2=tp.y+NH;}
+    }
+    else if(fp.x+NW <= tp.x){x1=fp.x+NW;y1=fp.y+NH/2;x2=tp.x;y2=tp.y+NH/2;}
     else if(tp.x+NW <= fp.x){x1=fp.x;y1=fp.y+NH/2;x2=tp.x+NW;y2=tp.y+NH/2;}
     else{x1=fp.x+NW/2;y1=fp.y+NH;x2=tp.x+NW/2;y2=tp.y;}
     var cpx=(x1+x2)/2;
@@ -687,7 +701,7 @@ function _renderAnatomy(anatomy){
 function _drawConnections(targetId){
   var svg=document.getElementById('conn-svg');
   if(!svg)return;
-  svg.innerHTML=_arrowDefs();
+  svg.innerHTML=_arrowDefs(aSx);
 
   var targetCard=document.getElementById(targetId);
   if(!targetCard)return;
@@ -745,12 +759,13 @@ function _bezierArrow(fromEl,toEl,color,svg,si,st,ei,et,label){
   var fr=fromEl.getBoundingClientRect();
   var tr=toEl.getBoundingClientRect();
 
-  function sc(v){return v/aSx;}
+  function ux(v){return (v-aTx)/aSx;}
+  function uy(v){return (v-aTy)/aSx;}
 
-  var fy=sc(fr.top-vp.top)+sc(fr.height)*_fanY(si,st);
-  var ty=sc(tr.top-vp.top)+sc(tr.height)*_fanY(ei,et);
-  var fx_r=sc(fr.right-vp.left),fx_l=sc(fr.left-vp.left);
-  var tx_r=sc(tr.right-vp.left),tx_l=sc(tr.left-vp.left);
+  var fy=uy(fr.top-vp.top)+(fr.height/aSx)*_fanY(si,st);
+  var ty=uy(tr.top-vp.top)+(tr.height/aSx)*_fanY(ei,et);
+  var fx_r=ux(fr.right-vp.left),fx_l=ux(fr.left-vp.left);
+  var tx_r=ux(tr.right-vp.left),tx_l=ux(tr.left-vp.left);
 
   var x1,x2;
   if(fx_r<tx_l){x1=fx_r;x2=tx_l;}
@@ -767,6 +782,7 @@ function _bezierArrow(fromEl,toEl,color,svg,si,st,ei,et,label){
   var path=document.createElementNS('http://www.w3.org/2000/svg','path');
   path.setAttribute('d',d);
   path.setAttribute('class','conn-path');
+  path.setAttribute('stroke-width',String(Math.max(1.1,1.8*aSx)));
   path.setAttribute('stroke',color);
   path.setAttribute('marker-end','url(#arr-'+color.replace('#','')+')');
   svg.appendChild(path);
@@ -777,7 +793,7 @@ function _bezierArrow(fromEl,toEl,color,svg,si,st,ei,et,label){
   var txt=document.createElementNS('http://www.w3.org/2000/svg','text');
   txt.setAttribute('x',mx);txt.setAttribute('y',my);
   txt.setAttribute('text-anchor','middle');txt.setAttribute('dominant-baseline','central');
-  txt.setAttribute('fill','#fff');txt.setAttribute('font-size','9px');txt.setAttribute('font-weight','bold');
+  txt.setAttribute('fill','#fff');txt.setAttribute('font-size',String(Math.max(7,9*aSx))+'px');txt.setAttribute('font-weight','bold');
   txt.setAttribute('style','pointer-events:none;text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;');
   txt.textContent=label;
   svg.appendChild(txt);
@@ -788,10 +804,13 @@ function _fanY(i,total){
   return .15+.7*(i/(total-1));
 }
 
-function _arrowDefs(){
+function _arrowDefs(scale){
+  var s=Math.max(.7,Math.min(2.2,scale||1));
+  var markerW=(6*s).toFixed(2);
+  var markerH=(6*s).toFixed(2);
   return '<defs>'
-    +'<marker id="arr-f39c12" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#f39c12"/></marker>'
-    +'<marker id="arr-3498db" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#3498db"/></marker>'
+    +'<marker id="arr-f39c12" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="'+markerW+'" markerHeight="'+markerH+'" orient="auto-start-reverse"><path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#f39c12"/></marker>'
+    +'<marker id="arr-3498db" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="'+markerW+'" markerHeight="'+markerH+'" orient="auto-start-reverse"><path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#3498db"/></marker>'
     +'</defs>';
 }
 
@@ -799,12 +818,12 @@ function _clearConnections(){
   _hoveredProvId=null;
   document.querySelectorAll('.prov-card').forEach(function(c){c.classList.remove('active-prov','dep-out','dep-in');});
   var svg=document.getElementById('conn-svg');
-  if(svg)svg.innerHTML=_arrowDefs();
+  if(svg)svg.innerHTML=_arrowDefs(aSx);
 }
 
 function _redrawConn(){
   if(_hoveredProvId){_drawConnections(_hoveredProvId);}
-  else{var svg=document.getElementById('conn-svg');if(svg)svg.innerHTML=_arrowDefs();}
+  else{var svg=document.getElementById('conn-svg');if(svg)svg.innerHTML=_arrowDefs(aSx);}
 }
 
 function _esc(s){

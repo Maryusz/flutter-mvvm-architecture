@@ -6,13 +6,14 @@ export interface CleanRiverpodFeatureParams {
   featurePlural: string; // {NOME_FEATURE_PLURALE}
   featureSingular: string; // {NOME_FEATURE_SINGOLARE}
   classSingular: string; // {NOME_CLASSE_SINGOLARE}
+  includeUseCases: boolean;
 }
 
 export async function createCleanRiverpodFeature(
   rootPath: string,
   params: CleanRiverpodFeatureParams
 ): Promise<void> {
-  const { featurePlural, featureSingular, classSingular } = params;
+  const { featurePlural, featureSingular, classSingular, includeUseCases } = params;
   const classPlural = toPascalCase(featurePlural);
 
   // Folders to create (No widgets folder as requested)
@@ -23,6 +24,10 @@ export async function createCleanRiverpodFeature(
     `lib/features/${featurePlural}/presentation/providers`,
     `lib/features/${featurePlural}/presentation/screens`,
   ];
+
+  if (includeUseCases) {
+    folders.push(`lib/features/${featurePlural}/domain/usecases`);
+  }
 
   for (const folder of folders) {
     const folderPath = path.join(rootPath, folder);
@@ -110,6 +115,22 @@ class ${classPlural}RepositoryImpl implements ${classPlural}Repository {
         _remoteDatasource = remoteDatasource;
 }
 `;
+
+  // Optional domain use case scaffold
+  if (includeUseCases) {
+    files[`lib/features/${featurePlural}/domain/usecases/get_${featurePlural}.dart`] = `import '../${featurePlural}_repository.dart';
+
+class Get${classPlural} {
+  final ${classPlural}Repository _repository;
+
+  Get${classPlural}(this._repository);
+
+  Future<void> call() async {
+    // TODO: implement use case logic
+  }
+}
+`;
+  }
 
   // 6. Presentation State Provider
   files[`lib/features/${featurePlural}/presentation/providers/${featurePlural}_state_provider.dart`] = `import 'package:flutter_riverpod/flutter_riverpod.dart';

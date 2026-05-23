@@ -245,11 +245,28 @@ export function activate(context: vscode.ExtensionContext) {
       }
       const classSingular = classSingularInput.trim();
 
+      // 4. Optional Use Cases
+      const includeUseCasesChoice = await vscode.window.showQuickPick(
+        ["si", "no"],
+        {
+          placeHolder: "Aggiungere gli useCase?",
+          canPickMany: false,
+        }
+      );
+      if (!includeUseCasesChoice) {
+        vscode.window.showErrorMessage(
+          "Creazione feature annullata. Selezionare se aggiungere gli useCase."
+        );
+        return;
+      }
+      const includeUseCases = includeUseCasesChoice === "si";
+
       try {
         await createCleanRiverpodFeature(rootPath, {
           featurePlural,
           featureSingular,
           classSingular,
+          includeUseCases,
         });
         vscode.window.showInformationMessage(
           `Feature Clean Riverpod "${featurePlural}" creata con successo!`

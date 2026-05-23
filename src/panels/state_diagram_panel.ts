@@ -395,8 +395,16 @@ function switchTab(t){
 
 // ── Refresh button ────────────────────────────────────────────────────────────
 document.getElementById('refreshBtn').addEventListener('click',function(){
-  document.getElementById('map-loading').style.display='';
-  document.getElementById('map-loading').textContent='Refreshing...';
+  var loading=document.getElementById('map-loading');
+  if(!loading){
+    loading=document.createElement('div');
+    loading.id='map-loading';
+    loading.style.cssText='padding:20px;color:#888;font-style:italic;';
+    var canvas=document.getElementById('map-canvas');
+    if(canvas){canvas.innerHTML='';canvas.appendChild(loading);}
+  }
+  loading.style.display='';
+  loading.textContent='Refreshing...';
   vscode.postMessage({command:'refresh'});
 });
 
@@ -435,11 +443,18 @@ function _renderMap(data){
   var loading=document.getElementById('map-loading');
 
   if(nodes.length===0){
+    if(!loading){
+      loading=document.createElement('div');
+      loading.id='map-loading';
+      loading.style.cssText='padding:20px;color:#888;font-style:italic;';
+      canvas.innerHTML='';
+      canvas.appendChild(loading);
+    }
     loading.style.display='';
     loading.innerHTML='<i>No architecture detected. Make sure your Flutter project has a <code>lib/features/</code> folder.</i>';
     return;
   }
-  loading.style.display='none';
+  if(loading){loading.style.display='none';}
 
   var NW=190, NH=56, HG=16, VG=12;
   var features=nodes.filter(function(n){return n.group==='feature';});

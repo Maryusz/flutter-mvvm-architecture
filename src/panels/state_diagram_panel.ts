@@ -188,10 +188,12 @@ button:hover{background:var(--vscode-button-hoverBackground,#005fa3);}
 .layers-row{display:flex;gap:10px;flex:1;position:relative;}
 .layer-col{flex:1;display:flex;flex-direction:column;border-radius:4px;background:#1a1a1a;border:1px solid #2d2d2d;min-width:0;}
 .layer-col.pres{border-top:3px solid #8e44ad;}
+.layer-col.uc{border-top:3px solid #f1c40f;}
 .layer-col.dom{border-top:3px solid #f39c12;}
 .layer-col.dat{border-top:3px solid #16a085;}
 .layer-head{font-weight:bold;padding:5px 8px;font-size:0.8rem;display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.02);border-bottom:1px solid #2d2d2d;}
 .layer-head.pres{color:#d7bde2;}
+.layer-head.uc{color:#fef9e7;}
 .layer-head.dom{color:#fdebd0;}
 .layer-head.dat{color:#d1f2eb;}
 .layer-body{overflow-y:auto;padding:5px;display:flex;flex-direction:column;gap:6px;}
@@ -657,21 +659,37 @@ function _renderAnatomy(anatomy){
   var presCount=anatomy.presentation.totalProviderCount;
   var domCount=anatomy.domain.totalProviderCount;
   var datCount=anatomy.data.totalProviderCount;
+  var hasUseCases=anatomy.useCases&&anatomy.useCases.files.length>0;
+  var ucCount=hasUseCases?anatomy.useCases.totalProviderCount:0;
 
-  var html=
-    '<div class="aflow">'
-      +'<div style="text-align:center;flex:1;"><strong style="color:#d7bde2;">PRESENTATION</strong><div style="font-size:0.65rem;color:#777;">UI &amp; Controllers</div></div>'
-      +'<div class="aflow-arrow">&#x27A1;</div>'
-      +'<div style="text-align:center;flex:1;"><strong style="color:#fdebd0;">DOMAIN</strong><div style="font-size:0.65rem;color:#777;">Use Cases &amp; Entities</div></div>'
-      +'<div class="aflow-arrow">&#x27A1;</div>'
-      +'<div style="text-align:center;flex:1;"><strong style="color:#d1f2eb;">DATA</strong><div style="font-size:0.65rem;color:#777;">Repos &amp; Sources</div></div>'
-    +'</div>'
+  var flowBar='<div class="aflow">'
+    +'<div style="text-align:center;flex:1;"><strong style="color:#d7bde2;">PRESENTATION</strong><div style="font-size:0.65rem;color:#777;">UI &amp; Controllers</div></div>'
+    +'<div class="aflow-arrow">&#x27A1;</div>';
+  if(hasUseCases){
+    flowBar+='<div style="text-align:center;flex:1;"><strong style="color:#fef9e7;">USE CASES</strong><div style="font-size:0.65rem;color:#777;">Business Logic</div></div>'
+      +'<div class="aflow-arrow">&#x27A1;</div>';
+  }
+  flowBar+='<div style="text-align:center;flex:1;"><strong style="color:#fdebd0;">DOMAIN</strong><div style="font-size:0.65rem;color:#777;">Entities &amp; Repos</div></div>'
+    +'<div class="aflow-arrow">&#x27A1;</div>'
+    +'<div style="text-align:center;flex:1;"><strong style="color:#d1f2eb;">DATA</strong><div style="font-size:0.65rem;color:#777;">Repos &amp; Sources</div></div>'
+    +'</div>';
+
+  var ucCol=hasUseCases
+    ?'<div class="layer-col uc">'
+        +'<div class="layer-head uc"><span>Use Cases</span>'
+          +'<span class="cbadge" style="background:rgba(241,196,15,.15);border-color:#f1c40f;color:#fef9e7;">'+ucCount+' prov</span></div>'
+        +'<div class="layer-body">'+buildLayer(anatomy.useCases)+'</div>'
+      +'</div>'
+    :'';
+
+  var html=flowBar
     +'<div class="layers-row">'
       +'<div class="layer-col pres">'
         +'<div class="layer-head pres"><span>Presentation</span>'
           +'<span class="cbadge" style="background:rgba(142,68,173,.15);border-color:#8e44ad;color:#d7bde2;">'+presCount+' prov</span></div>'
         +'<div class="layer-body">'+buildLayer(anatomy.presentation)+'</div>'
       +'</div>'
+      +ucCol
       +'<div class="layer-col dom">'
         +'<div class="layer-head dom"><span>Domain</span>'
           +'<span class="cbadge" style="background:rgba(243,156,18,.15);border-color:#f39c12;color:#fdebd0;">'+domCount+' prov</span></div>'

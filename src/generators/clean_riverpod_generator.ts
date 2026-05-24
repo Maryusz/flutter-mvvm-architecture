@@ -118,22 +118,47 @@ class ${classPlural}RepositoryImpl implements ${classPlural}Repository {
 
   // Optional domain use case scaffold
   if (includeUseCases) {
-    files[`lib/features/${featurePlural}/domain/usecases/get_${featurePlural}.dart`] = `import '../${featurePlural}_repository.dart';
+    files[`lib/features/${featurePlural}/domain/usecases/get_${featurePlural}.dart`] = `import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../${featurePlural}_repository.dart';
+import '../models/${featureSingular}.dart';
+
+final get${classPlural}UseCaseProvider = Provider<Get${classPlural}>((ref) {
+  final repository = ref.watch(${featureSingular}RepositoryProvider);
+  return Get${classPlural}(repository);
+});
 
 class Get${classPlural} {
   final ${classPlural}Repository _repository;
 
   Get${classPlural}(this._repository);
 
-  Future<void> call() async {
+  Future<List<${classSingular}>> call() async {
     // TODO: implement use case logic
+    return [];
   }
 }
 `;
   }
 
   // 6. Presentation State Provider
-  files[`lib/features/${featurePlural}/presentation/providers/${featurePlural}_state_provider.dart`] = `import 'package:flutter_riverpod/flutter_riverpod.dart';
+  if (includeUseCases) {
+    files[`lib/features/${featurePlural}/presentation/providers/${featurePlural}_state_provider.dart`] = `import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../domain/models/${featureSingular}.dart';
+import '../../domain/usecases/get_${featurePlural}.dart';
+
+final ${featurePlural}StateProvider =
+    AsyncNotifierProvider<${classPlural}Notifier, List<${classSingular}>>(${classPlural}Notifier.new);
+
+class ${classPlural}Notifier extends AsyncNotifier<List<${classSingular}>> {
+  @override
+  Future<List<${classSingular}>> build() async {
+    final useCase = ref.watch(get${classPlural}UseCaseProvider);
+    return await useCase();
+  }
+}
+`;
+  } else {
+    files[`lib/features/${featurePlural}/presentation/providers/${featurePlural}_state_provider.dart`] = `import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/${featureSingular}.dart';
 import '../../domain/${featurePlural}_repository.dart';
 
@@ -148,6 +173,7 @@ class ${classPlural}Notifier extends AsyncNotifier<List<${classSingular}>> {
   }
 }
 `;
+  }
 
   // 7. Presentation Screen
   files[`lib/features/${featurePlural}/presentation/screens/${featurePlural}_screen.dart`] = `import 'package:flutter/material.dart';

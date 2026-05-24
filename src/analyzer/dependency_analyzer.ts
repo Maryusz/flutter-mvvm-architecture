@@ -25,7 +25,7 @@ export interface DartProviderInfo {
   returnType: string;
   definedInFile?: string;
   absolutePath?: string;
-  layer?: "presentation" | "domain" | "data" | "unknown";
+  layer?: "presentation" | "useCases" | "domain" | "data" | "unknown";
   dependencies?: string[];
   dependencyDetails?: { name: string; type: "watch" | "read" | "listen" | "unknown" }[];
 }
@@ -56,6 +56,7 @@ export interface FeatureAnatomy {
   featureName: string;
   data: LayerDetails;
   domain: LayerDetails;
+  useCases: LayerDetails;
   presentation: LayerDetails;
   layerViolations: LayerViolation[];
 }
@@ -326,6 +327,7 @@ export async function analyzeFeatureAnatomy(
     featureName,
     data: { files: [], totalProviderCount: 0 },
     domain: { files: [], totalProviderCount: 0 },
+    useCases: { files: [], totalProviderCount: 0 },
     presentation: { files: [], totalProviderCount: 0 },
     layerViolations: [],
   };
@@ -373,9 +375,11 @@ export async function analyzeFeatureAnatomy(
     matches.sort((a, b) => a.index - b.index);
 
     const lowerPath = relativePath.toLowerCase();
-    let fileLayer: "data" | "domain" | "presentation";
+    let fileLayer: "data" | "domain" | "useCases" | "presentation";
     if (lowerPath.includes("/data/") || lowerPath.startsWith("data/")) {
       fileLayer = "data";
+    } else if (lowerPath.includes("/usecases/") || lowerPath.includes("/use_cases/") || lowerPath.startsWith("usecases/") || lowerPath.startsWith("use_cases/")) {
+      fileLayer = "useCases";
     } else if (lowerPath.includes("/domain/") || lowerPath.startsWith("domain/")) {
       fileLayer = "domain";
     } else if (lowerPath.includes("/presentation/") || lowerPath.startsWith("presentation/") || lowerPath.includes("/ui/") || lowerPath.startsWith("ui/")) {
@@ -383,7 +387,9 @@ export async function analyzeFeatureAnatomy(
     } else {
       if (fileName.endsWith("_impl.dart") || fileName.includes("datasource") || fileName.includes("api") || fileName.includes("dto")) {
         fileLayer = "data";
-      } else if (fileName.includes("use_case") || fileName.includes("entity") || fileName.includes("model") || fileName.endsWith("_repository.dart")) {
+      } else if (fileName.includes("use_case") || fileName.includes("usecase")) {
+        fileLayer = "useCases";
+      } else if (fileName.includes("entity") || fileName.includes("model") || fileName.endsWith("_repository.dart")) {
         fileLayer = "domain";
       } else {
         fileLayer = "presentation";
@@ -435,8 +441,8 @@ export async function analyzeFeatureAnatomy(
   }
 
   // Detect layer violations
-  const providerLayerMap = new Map<string, "presentation" | "domain" | "data">();
-  for (const layer of ["presentation", "domain", "data"] as const) {
+  const providerLayerMap = new Map<string, "presentation" | "domain" | "useCases" | "data">();
+  for (const layer of ["presentation", "useCases", "domain", "data"] as const) {
     for (const fileInfo of anatomy[layer].files) {
       for (const prov of fileInfo.providers) {
         providerLayerMap.set(prov.name, layer);
@@ -444,7 +450,9 @@ export async function analyzeFeatureAnatomy(
     }
   }
 
-  for (const layer of ["presentation", "domain", "data"] as const) {
+  const hasUseCasesLayer = anatomy.useCases.files.length > 0;
+
+  for (const layer of ["presentation", "useCases", "domain", "data"] as const) {
     for (const fileInfo of anatomy[layer].files) {
       for (const prov of fileInfo.providers) {
         for (const dep of (prov.dependencyDetails || [])) {
@@ -459,7 +467,18 @@ export async function analyzeFeatureAnatomy(
               dependencyName: dep.name,
               dependencyLayer: depLayer,
               severity: "warning",
-              message: `\u26a0\ufe0f Presentation provider \'${prov.name}\' directly watches Data provider \'${dep.name}\'. Consider routing through a Domain provider.`,
+              message: `\u26a0\ufe0f Presentation provider '${prov.name}' directly watches Data provider '${dep.name}'. Consider routing through a Domain provider.`,
+            });
+          }
+          // if use cases exist, presentation should NOT bypass them to reach domain directly
+          if (layer === "presentation" && depLayer === "domain" && hasUseCasesLayer) {
+            anatomy.layerViolations.push({
+              providerName: prov.name,
+              providerLayer: layer,
+              dependencyName: dep.name,
+              dependencyLayer: depLayer,
+              severity: "warning",
+              message: `\u26a0\ufe0f Presentation provider '${prov.name}' directly watches Domain provider '${dep.name}'. Consider routing through a Use Case.`,
             });
           }
           // domain should NOT watch presentation providers
@@ -470,18 +489,29 @@ export async function analyzeFeatureAnatomy(
               dependencyName: dep.name,
               dependencyLayer: depLayer,
               severity: "error",
-              message: `\u274c Domain provider \'${prov.name}\' watches Presentation provider \'${dep.name}\'. This inverts the dependency rule.`,
+              message: `\u274c Domain provider '${prov.name}' watches Presentation provider '${dep.name}'. This inverts the dependency rule.`,
             });
           }
-          // data should NOT watch domain or presentation
-          if (layer === "data" && (depLayer === "domain" || depLayer === "presentation")) {
+          // use cases should NOT watch presentation providers
+          if (layer === "useCases" && depLayer === "presentation") {
             anatomy.layerViolations.push({
               providerName: prov.name,
               providerLayer: layer,
               dependencyName: dep.name,
               dependencyLayer: depLayer,
               severity: "error",
-              message: `\u274c Data provider \'${prov.name}\' watches ${depLayer} provider \'${dep.name}\'. Data layer must not depend on upper layers.`,
+              message: `\u274c Use Case provider '${prov.name}' watches Presentation provider '${dep.name}'. This inverts the dependency rule.`,
+            });
+          }
+          // data should NOT watch domain, use cases or presentation
+          if (layer === "data" && (depLayer === "domain" || depLayer === "useCases" || depLayer === "presentation")) {
+            anatomy.layerViolations.push({
+              providerName: prov.name,
+              providerLayer: layer,
+              dependencyName: dep.name,
+              dependencyLayer: depLayer,
+              severity: "error",
+              message: `\u274c Data provider '${prov.name}' watches ${depLayer} provider '${dep.name}'. Data layer must not depend on upper layers.`,
             });
           }
         }

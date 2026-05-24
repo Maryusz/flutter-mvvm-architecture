@@ -4,7 +4,7 @@
 
 This extension for Visual Studio Code helps you create an MVVM structure for Flutter projects as suggested by the latest guide you can find here:
 [MVVM Flutter guide](https://docs.flutter.dev/app-architecture/case-study)
-This extension was created with the help of ChatGPT for the sole purpose of simplifying the use of the architecture in question.
+This extension was created with the help of AI coding agents (Claude code, Codex and Gemini) for the sole purpose of simplifying the use of the architecture in question.
 
 ## Available Commands
 

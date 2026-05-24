@@ -169,11 +169,32 @@ button:hover{background:var(--vscode-button-hoverBackground,#005fa3);}
 .leg-item{display:flex;align-items:center;gap:7px;font-size:0.72rem;margin-bottom:5px;}
 .leg-dot{width:11px;height:11px;border-radius:2px;flex-shrink:0;}
 /* Graph nodes */
-.gnode{position:absolute;border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:5px 7px;transition:filter .15s,box-shadow .15s;}
+.gnode{position:absolute;border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:5px 7px;transition:filter .12s,box-shadow .15s,opacity .12s;}
 .gnode:hover{filter:brightness(1.25);}
 .gnode.selected{box-shadow:0 0 0 3px #f1c40f !important;}
+.gnode.dimmed{opacity:0.14;}
+.gnode.lit{filter:brightness(1.4);}
 .gnode-label{font-size:0.72rem;color:#fff;font-weight:500;text-align:center;word-break:break-word;line-height:1.25;}
 .gnode-sub{font-size:0.6rem;color:#aaa;margin-top:2px;}
+.gnode-counters{display:flex;gap:5px;margin-top:3px;justify-content:center;flex-wrap:wrap;}
+.dep-out{font-size:0.58rem;color:#3498db;background:rgba(52,152,219,.18);border-radius:2px;padding:0 4px;}
+.dep-in{font-size:0.58rem;color:#e67e22;background:rgba(230,126,34,.18);border-radius:2px;padding:0 4px;}
+.use-cnt{font-size:0.58rem;color:#9b59b6;background:rgba(155,89,182,.18);border-radius:2px;padding:0 4px;}
+/* Zone backgrounds */
+.zone-bg{position:absolute;border-radius:6px;border:1px solid;pointer-events:none;z-index:0;}
+.zone-feat{background:rgba(15,37,64,.5);border-color:rgba(52,152,219,.2);}
+.zone-glob{background:rgba(61,26,0,.5);border-color:rgba(230,126,34,.2);}
+.zone-label{position:absolute;font-size:0.58rem;font-weight:bold;text-transform:uppercase;letter-spacing:.7px;z-index:1;pointer-events:none;}
+.zone-lbl-feat{color:rgba(52,152,219,.7);}
+.zone-lbl-glob{color:rgba(230,126,34,.7);}
+/* Map edges */
+.edge-path{transition:opacity .12s;}
+.edge-path.dimmed{opacity:0.05 !important;}
+.edge-path.lit{opacity:1 !important;stroke-width:2.6px !important;}
+/* Sidebar search */
+.map-search{width:100%;background:#1e1e1e;border:1px solid #3c3c3c;color:#ccc;padding:4px 6px;border-radius:2px;font-size:0.75rem;margin-bottom:6px;outline:none;}
+.map-search:focus{border-color:#007acc;}
+.sb-group-label{font-size:0.63rem;color:#666;text-transform:uppercase;letter-spacing:.5px;margin:6px 0 3px;font-weight:bold;}
 /* Inspector tab */
 #inspector-wrap{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;padding-top:8px;}
 .insp-header{font-size:0.95rem;font-weight:500;margin-bottom:6px;border-bottom:1px solid #3c3c3c;padding-bottom:5px;color:#007acc;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;}
@@ -249,15 +270,26 @@ button:hover{background:var(--vscode-button-hoverBackground,#005fa3);}
 
     <div id="sidebar">
       <div class="sb-section">
-        <div class="sb-title">Features &amp; Providers</div>
-        <div id="feat-list" style="display:flex;flex-direction:column;gap:4px;max-height:190px;overflow-y:auto;padding-right:3px;">
+        <div class="sb-title">Nodes</div>
+        <input id="map-search" class="map-search" type="text" placeholder="Filter…" autocomplete="off"/>
+        <div id="feat-list" style="display:flex;flex-direction:column;gap:3px;max-height:200px;overflow-y:auto;padding-right:3px;">
         </div>
       </div>
       <div class="sb-section">
         <div class="sb-title">Legend</div>
-        <div class="leg-item"><div class="leg-dot" style="background:#1a3d2b;border:1px solid #2ecc71;"></div><span>Standalone Feature</span></div>
-        <div class="leg-item"><div class="leg-dot" style="background:#1a3a5c;border:1px solid #3498db;"></div><span>Feature with Dependencies</span></div>
-        <div class="leg-item"><div class="leg-dot" style="background:#5a2000;border:1px solid #e67e22;"></div><span>Global Provider</span></div>
+        <div class="leg-item"><div class="leg-dot" style="background:#0f2a1a;border:1px solid #2ecc71;"></div><span>Standalone Feature</span></div>
+        <div class="leg-item"><div class="leg-dot" style="background:#0f2540;border:1px solid #3498db;"></div><span>Feature with Deps</span></div>
+        <div class="leg-item"><div class="leg-dot" style="background:#3d1a00;border:1px solid #e67e22;"></div><span>Global Provider</span></div>
+        <div style="margin-top:6px;border-top:1px solid #333;padding-top:5px;">
+          <div class="leg-item"><span style="display:inline-block;width:18px;height:2px;background:#3498db;margin-right:7px;"></span><span>Feature → Feature</span></div>
+          <div class="leg-item"><span style="display:inline-block;width:18px;height:2px;background:#e67e22;border-top:2px dashed #e67e22;height:0;margin-right:7px;"></span><span>Feature → Global</span></div>
+          <div class="leg-item"><span style="display:inline-block;width:18px;height:0;border-top:2px dashed #9b59b6;margin-right:7px;"></span><span>Global → Feature</span></div>
+        </div>
+        <div style="margin-top:5px;border-top:1px solid #333;padding-top:5px;">
+          <div class="leg-item" style="gap:4px;"><span class="dep-out">→N</span><span style="font-size:0.68rem;">outgoing deps</span></div>
+          <div class="leg-item" style="gap:4px;"><span class="dep-in">←N</span><span style="font-size:0.68rem;">incoming deps</span></div>
+          <div class="leg-item" style="gap:4px;"><span class="use-cnt">×N used</span><span style="font-size:0.68rem;">feature usages</span></div>
+        </div>
       </div>
       <div class="sb-section">
         <div class="sb-title">Details</div>
@@ -458,105 +490,223 @@ function _renderMap(data){
   }
   if(loading){loading.style.display='none';}
 
-  var NW=190, NH=56, HG=16, VG=12;
+  var NW=186, NH=64, HG=18, VG=14, ZP=10, ZLH=24, ZONE_GAP=20;
   var features=nodes.filter(function(n){return n.group==='feature';});
   var globals=nodes.filter(function(n){return n.group==='global_provider';});
-  var COLS=Math.min(3,features.length||1);
-  var pos={};
   var nodeById={};
   nodes.forEach(function(n){ nodeById[n.id]=n; });
 
+  // ── Compute dependency counts ─────────────────────────────────────────────
+  var outCount={}, inCount={}, globUsage={};
+  nodes.forEach(function(n){ outCount[n.id]=0; inCount[n.id]=0; globUsage[n.id]=0; });
+  edges.forEach(function(e){
+    outCount[e.from]=(outCount[e.from]||0)+1;
+    inCount[e.to]=(inCount[e.to]||0)+1;
+    var toNode=nodeById[e.to];
+    if(toNode&&toNode.group==='global_provider'){
+      globUsage[e.to]=(globUsage[e.to]||0)+1;
+    }
+  });
+
+  // ── Sort: features by total connections desc, then alpha ──────────────────
+  features.sort(function(a,b){
+    var ca=(outCount[a.id]||0)+(inCount[a.id]||0);
+    var cb=(outCount[b.id]||0)+(inCount[b.id]||0);
+    if(cb!==ca)return cb-ca;
+    return a.label.localeCompare(b.label);
+  });
+  // Sort globals: most used first, then alpha
+  globals.sort(function(a,b){
+    var ua=globUsage[a.id]||0, ub=globUsage[b.id]||0;
+    if(ub!==ua)return ub-ua;
+    return a.label.localeCompare(b.label);
+  });
+
+  // ── Layout ────────────────────────────────────────────────────────────────
+  var FEAT_COLS=Math.min(4, features.length||1);
+  var GLOB_COLS=Math.min(5, globals.length||1);
+  var pos={};
+
   features.forEach(function(n,i){
-    var col=i%COLS, row=Math.floor(i/COLS);
-    pos[n.id]={x:col*(NW+HG)+10, y:row*(NH+VG)+10};
+    var col=i%FEAT_COLS, row=Math.floor(i/FEAT_COLS);
+    pos[n.id]={x:ZP+col*(NW+HG), y:ZLH+ZP+row*(NH+VG)};
   });
 
-  var featureRows=Math.ceil(features.length/COLS);
-  var featureHeight=featureRows*(NH+VG);
-  var globalStartY=featureHeight+24;
-  var globalCols=Math.max(1,Math.min(COLS,globals.length||1));
+  var featRows=Math.ceil(features.length/FEAT_COLS)||1;
+  var featZoneH=ZLH+ZP+featRows*(NH+VG)+ZP;
+  var FEAT_ZONE_W=ZP+FEAT_COLS*(NW+HG)-HG+ZP;
+
+  var globZoneY=features.length>0 ? featZoneH+ZONE_GAP : 0;
   globals.forEach(function(n,i){
-    var gCol=i%globalCols, gRow=Math.floor(i/globalCols);
-    pos[n.id]={x:gCol*(NW+HG)+10, y:globalStartY+gRow*(NH+VG)};
+    var col=i%GLOB_COLS, row=Math.floor(i/GLOB_COLS);
+    pos[n.id]={x:ZP+col*(NW+HG), y:globZoneY+ZLH+ZP+row*(NH+VG)};
   });
 
-  var globalRows=Math.ceil(globals.length/globalCols);
-  var totalH=Math.max(featureHeight+globalRows*(NH+VG)+34, 200);
-  var totalW=Math.max(COLS,globalCols)*(NW+HG)+20;
+  var globRows=Math.ceil(globals.length/GLOB_COLS)||0;
+  var globZoneH=globals.length>0 ? ZLH+ZP+globRows*(NH+VG)+ZP : 0;
+  var GLOB_ZONE_W=globals.length>0 ? ZP+GLOB_COLS*(NW+HG)-HG+ZP : 0;
 
-  // SVG edges
+  var totalW=Math.max(FEAT_ZONE_W, GLOB_ZONE_W, 300)+10;
+  var totalH=(globals.length>0 ? globZoneY+globZoneH : featZoneH)+10;
+
+  // ── Zone background divs ──────────────────────────────────────────────────
+  var zoneHtml='';
+  if(features.length>0){
+    zoneHtml+='<div class="zone-bg zone-feat" style="left:0;top:0;width:'+FEAT_ZONE_W+'px;height:'+featZoneH+'px;"></div>'
+      +'<div class="zone-label zone-lbl-feat" style="left:8px;top:6px;">Features ('+features.length+')</div>';
+  }
+  if(globals.length>0){
+    zoneHtml+='<div class="zone-bg zone-glob" style="left:0;top:'+globZoneY+'px;width:'+GLOB_ZONE_W+'px;height:'+globZoneH+'px;"></div>'
+      +'<div class="zone-label zone-lbl-glob" style="left:8px;top:'+(globZoneY+6)+'px;">Global Providers ('+globals.length+') · sorted by usage</div>';
+  }
+
+  // ── SVG edges ─────────────────────────────────────────────────────────────
+  var svgDefs='<defs>'
+    +'<marker id="marr-feat" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#3498db"/></marker>'
+    +'<marker id="marr-glob" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#e67e22"/></marker>'
+    +'<marker id="marr-rev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#9b59b6"/></marker>'
+    +'</defs>';
   var svgPaths='';
+
   edges.forEach(function(e){
     var fp=pos[e.from],tp=pos[e.to];
     if(!fp||!tp)return;
     var fromNode=nodeById[e.from],toNode=nodeById[e.to];
-    var involvesGlobal=(fromNode&&fromNode.group==='global_provider')||(toNode&&toNode.group==='global_provider');
+    var fromIsGlob=fromNode&&fromNode.group==='global_provider';
+    var toIsGlob=toNode&&toNode.group==='global_provider';
+    var stroke,dash,marker,sw;
+    if(!fromIsGlob&&!toIsGlob){stroke='#3498db';dash='';marker='marr-feat';sw='2';}
+    else if(!fromIsGlob&&toIsGlob){stroke='#e67e22';dash='stroke-dasharray="5 3"';marker='marr-glob';sw='1.5';}
+    else{stroke='#9b59b6';dash='stroke-dasharray="3 4"';marker='marr-rev';sw='1.3';}
+
     var x1,y1,x2,y2;
-    if(involvesGlobal){
-      x1=fp.x+NW/2;
-      x2=tp.x+NW/2;
-      if(fp.y<=tp.y){y1=fp.y+NH;y2=tp.y;}
-      else{y1=fp.y;y2=tp.y+NH;}
-    }
-    else if(fp.x+NW <= tp.x){x1=fp.x+NW;y1=fp.y+NH/2;x2=tp.x;y2=tp.y+NH/2;}
-    else if(tp.x+NW <= fp.x){x1=fp.x;y1=fp.y+NH/2;x2=tp.x+NW;y2=tp.y+NH/2;}
-    else{x1=fp.x+NW/2;y1=fp.y+NH;x2=tp.x+NW/2;y2=tp.y;}
+    if(fp.x+NW<=tp.x){x1=fp.x+NW;y1=fp.y+NH/2;x2=tp.x;y2=tp.y+NH/2;}
+    else if(tp.x+NW<=fp.x){x1=fp.x;y1=fp.y+NH/2;x2=tp.x+NW;y2=tp.y+NH/2;}
+    else if(fp.y+NH<=tp.y){x1=fp.x+NW/2;y1=fp.y+NH;x2=tp.x+NW/2;y2=tp.y;}
+    else{x1=fp.x+NW/2;y1=fp.y;x2=tp.x+NW/2;y2=tp.y+NH;}
     var cpx=(x1+x2)/2;
-    svgPaths+='<path d="M '+x1+' '+y1+' C '+cpx+' '+y1+','+cpx+' '+y2+','+x2+' '+y2+'"'
-      +' stroke="#4a4a4a" stroke-width="1.5" fill="none" stroke-dasharray="5 3"'
-      +' marker-end="url(#map-arr)"/>';
+
+    svgPaths+='<path class="edge-path" data-from="'+_esc(e.from)+'" data-to="'+_esc(e.to)+'"'
+      +' d="M '+x1+' '+y1+' C '+cpx+' '+y1+','+cpx+' '+y2+','+x2+' '+y2+'"'
+      +' stroke="'+stroke+'" stroke-width="'+sw+'" fill="none" '+dash
+      +' marker-end="url(#'+marker+')" opacity="0.72"/>';
   });
 
   var svgEl='<svg style="position:absolute;left:0;top:0;width:'+totalW+'px;height:'+totalH+'px;z-index:2;pointer-events:none;overflow:visible;">'
-    +'<defs><marker id="map-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
-    +'<path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#5a5a5a"/></marker></defs>'
-    +svgPaths+'</svg>';
+    +svgDefs+svgPaths+'</svg>';
 
-  // Node divs
+  // ── Node divs ─────────────────────────────────────────────────────────────
   var nodesHtml='';
   nodes.forEach(function(n){
     var p=pos[n.id];
-    var bg,border;
+    if(!p)return;
     var isGlob=(n.group==='global_provider');
-    var hasDep=edges.some(function(e){return e.from===n.id;});
-    if(isGlob){bg='#5a2000';border='#e67e22';}
-    else if(hasDep){bg='#1a3a5c';border='#3498db';}
-    else{bg='#1a3d2b';border='#2ecc71';}
-    nodesHtml+='<div class="gnode" data-nid="'+n.id+'"'
-      +' style="left:'+p.x+'px;top:'+p.y+'px;width:'+NW+'px;height:'+NH+'px;'
+    var bg,border;
+    if(isGlob){bg='#3d1a00';border='#e67e22';}
+    else if((outCount[n.id]||0)+(inCount[n.id]||0)>0){bg='#0f2540';border='#3498db';}
+    else{bg='#0f2a1a';border='#2ecc71';}
+
+    var countersHtml='';
+    if(isGlob){
+      var usages=globUsage[n.id]||0;
+      if(usages>0)countersHtml='<div class="gnode-counters"><span class="use-cnt">\xd7'+usages+' used</span></div>';
+      else countersHtml='<div class="gnode-sub">Global Provider</div>';
+    } else {
+      var parts=[];
+      if((outCount[n.id]||0)>0)parts.push('<span class="dep-out">→'+(outCount[n.id])+'</span>');
+      if((inCount[n.id]||0)>0)parts.push('<span class="dep-in">←'+(inCount[n.id])+'</span>');
+      countersHtml=parts.length>0
+        ?'<div class="gnode-counters">'+parts.join('')+'</div>'
+        :'<div class="gnode-sub">Feature</div>';
+    }
+    nodesHtml+='<div class="gnode" data-nid="'+_esc(n.id)+'"'
+      +' style="left:'+p.x+'px;top:'+p.y+'px;width:'+NW+'px;height:'+NH+'px;z-index:3;'
       +'background:'+bg+';border:2px solid '+border+';">'
       +'<div class="gnode-label">'+_esc(n.label)+'</div>'
-      +'<div class="gnode-sub">'+(isGlob?'Global Provider':'Feature')+'</div>'
+      +countersHtml
       +'</div>';
   });
 
   canvas.innerHTML='<div style="position:relative;width:'+totalW+'px;height:'+totalH+'px;">'
-    +svgEl+nodesHtml+'</div>';
+    +zoneHtml+svgEl+nodesHtml+'</div>';
 
-  // Populate sidebar list
+  // ── Sidebar ───────────────────────────────────────────────────────────────
   var fl=document.getElementById('feat-list');
   fl.innerHTML='';
-  nodes.forEach(function(n){
-    var isGlob=(n.group==='global_provider');
-    var hasDep=edges.some(function(e){return e.from===n.id;});
-    var bg=isGlob?'#5a2000':(hasDep?'#1a3a5c':'#1a3d2b');
-    var div=document.createElement('div');
-    div.style.cssText='padding:3px 6px;border-radius:3px;background:'+bg+';color:#fff;font-size:0.72rem;cursor:pointer;font-family:monospace;';
-    div.textContent=(isGlob?'P ':'F ')+n.label;
-    div.addEventListener('click',function(){_selectNode(n,data);});
-    fl.appendChild(div);
-  });
+  function _addSbGroup(list, label){
+    if(list.length===0)return;
+    var gl=document.createElement('div');
+    gl.className='sb-group-label';
+    gl.textContent=label+' ('+list.length+')';
+    fl.appendChild(gl);
+    list.forEach(function(n){
+      var isGlob=(n.group==='global_provider');
+      var bg=isGlob?'#3d1a00':((outCount[n.id]||0)+(inCount[n.id]||0)>0?'#0f2540':'#0f2a1a');
+      var div=document.createElement('div');
+      div.className='sb-node-item';
+      div.setAttribute('data-label',n.label.toLowerCase());
+      div.style.cssText='padding:3px 6px;border-radius:3px;background:'+bg+';color:#fff;font-size:0.72rem;cursor:pointer;font-family:monospace;';
+      div.textContent=n.label;
+      div.addEventListener('click',function(){_selectNode(n,data);});
+      fl.appendChild(div);
+    });
+  }
+  _addSbGroup(features,'Features');
+  _addSbGroup(globals,'Global Providers');
 
-  // Click handlers on graph nodes
+  var searchEl=document.getElementById('map-search');
+  if(searchEl){
+    searchEl.value='';
+    searchEl.oninput=function(){
+      var q=this.value.trim().toLowerCase();
+      document.querySelectorAll('.sb-node-item').forEach(function(el){
+        var lbl=el.getAttribute('data-label')||'';
+        el.style.display=(q===''||lbl.includes(q))?'':'none';
+      });
+    };
+  }
+
+  // ── Interaction: hover highlight ──────────────────────────────────────────
   canvas.querySelectorAll('.gnode').forEach(function(el){
-    el.addEventListener('click',function(){
+    el.addEventListener('click',function(ev){
+      ev.stopPropagation();
       var id=el.getAttribute('data-nid');
       var node=nodes.find(function(n){return n.id===id;});
       if(node)_selectNode(node,data);
     });
+    el.addEventListener('mouseenter',function(){
+      _highlightMapNode(el.getAttribute('data-nid'),edges);
+    });
+    el.addEventListener('mouseleave',_clearMapHighlight);
   });
 
   mapZoomReset();
+}
+
+function _highlightMapNode(nodeId,edges){
+  var related=new Set([nodeId]);
+  edges.forEach(function(e){
+    if(e.from===nodeId)related.add(e.to);
+    if(e.to===nodeId)related.add(e.from);
+  });
+  document.querySelectorAll('.gnode').forEach(function(el){
+    var id=el.getAttribute('data-nid');
+    el.classList.remove('dimmed','lit');
+    if(id===nodeId){el.classList.add('lit');}
+    else if(!related.has(id)){el.classList.add('dimmed');}
+  });
+  document.querySelectorAll('.edge-path').forEach(function(path){
+    var from=path.getAttribute('data-from');
+    var to=path.getAttribute('data-to');
+    path.classList.remove('dimmed','lit');
+    if(from===nodeId||to===nodeId){path.classList.add('lit');}
+    else{path.classList.add('dimmed');}
+  });
+}
+
+function _clearMapHighlight(){
+  document.querySelectorAll('.gnode').forEach(function(el){el.classList.remove('dimmed','lit');});
+  document.querySelectorAll('.edge-path').forEach(function(path){path.classList.remove('dimmed','lit');});
 }
 
 function _selectNode(node,data){

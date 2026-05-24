@@ -209,7 +209,7 @@ button:hover{background:var(--vscode-button-hoverBackground,#005fa3);}
 .cl-title{font-weight:bold;margin-bottom:3px;color:#fff;text-transform:uppercase;font-size:0.58rem;letter-spacing:.5px;}
 .cl-item{display:flex;align-items:center;margin:2px 0;}
 .cl-dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;flex-shrink:0;}
-.anatomy-zoomable{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform;display:flex;flex-direction:column;padding:10px;min-width:600px;}
+.anatomy-zoomable{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform;display:flex;flex-direction:column;padding:10px 52px 10px 10px;min-width:600px;}
 .layers-row{display:flex;gap:10px;flex:1;position:relative;}
 .layer-col{flex:1;display:flex;flex-direction:column;border-radius:4px;background:#1a1a1a;border:1px solid #2d2d2d;min-width:0;min-height:80px;}
 .layer-col.pres{border-top:3px solid #8e44ad;}
@@ -1006,26 +1006,42 @@ function _bezierArrow(fromEl,toEl,color,svg,si,st,ei,et,label){
   var fr=fromEl.getBoundingClientRect();
   var tr=toEl.getBoundingClientRect();
 
-  // #conn-svg sits OUTSIDE the scaled canvas — its coordinates are 1:1
-  // with the viewport. getBoundingClientRect() already gives us viewport-
-  // relative positions, so NO inverse transform is needed.
+  // #conn-svg is a sibling of the canvas (not inside it), so coordinates
+  // are 1:1 with the viewport — no inverse transform needed.
   var fy=(fr.top-vp.top)+fr.height*_fanY(si,st);
   var ty=(tr.top-vp.top)+tr.height*_fanY(ei,et);
-  var fx_r=fr.right-vp.left, fx_l=fr.left-vp.left;
-  var tx_r=tr.right-vp.left, tx_l=tr.left-vp.left;
 
-  var x1,x2;
-  if(fx_r<tx_l){x1=fx_r;x2=tx_l;}
-  else if(tx_r<fx_l){x1=fx_l;x2=tx_r;}
-  else{x1=fx_r;x2=tx_r;}
+  var frLeft=fr.left-vp.left, frRight=fr.right-vp.left;
+  var trLeft=tr.left-vp.left, trRight=tr.right-vp.left;
 
-  var dx=Math.abs(x2-x1),cp=Math.max(40,Math.min(160,dx*.45));
-  var isRev=(x2<x1);
-  var flex=(si-(st-1)/2)*12;
-  var c1x=x1+(isRev?-cp:cp),c1y=fy+flex;
-  var c2x=x2-(isRev?-cp:cp),c2y=ty-flex;
+  // GUTTER: horizontal stub length before the curve starts/ends.
+  // Arrows always exit/enter cards with a horizontal tangent so they
+  // travel through the inter-column lane, never over card content.
+  var GUTTER=36;
+  var x1,x2,c1x,c2x;
 
-  var d='M '+x1+' '+fy+' C '+c1x+' '+c1y+','+c2x+' '+c2y+','+x2+' '+ty;
+  if(frRight<=trLeft+2){
+    // Source LEFT of target → exit right edge, enter left edge (S-curve)
+    x1=frRight; x2=trLeft;
+    var cp=Math.min(GUTTER,Math.max(8,(x2-x1)*0.45));
+    c1x=x1+cp; c2x=x2-cp;
+  } else if(trRight<=frLeft+2){
+    // Source RIGHT of target → exit left edge, enter right edge
+    x1=frLeft; x2=trRight;
+    var cp=Math.min(GUTTER,Math.max(8,(x1-x2)*0.45));
+    c1x=x1-cp; c2x=x2+cp;
+  } else {
+    // Same column or horizontal overlap → C-curve through right gutter.
+    // si*8 staggers multiple connections to prevent overlap in the gutter.
+    var gutterX=Math.max(frRight,trRight)+GUTTER+si*8;
+    x1=frRight; x2=trRight;
+    c1x=gutterX; c2x=gutterX;
+  }
+
+  // Both control points share the y of their respective endpoint → horizontal
+  // tangents at source and target, keeping curves inside the inter-column lane.
+  var d='M '+x1+' '+fy+' C '+c1x+' '+fy+','+c2x+' '+ty+','+x2+' '+ty;
+
   var path=document.createElementNS('http://www.w3.org/2000/svg','path');
   path.setAttribute('d',d);
   path.setAttribute('class','conn-path');
@@ -1034,11 +1050,11 @@ function _bezierArrow(fromEl,toEl,color,svg,si,st,ei,et,label){
   path.setAttribute('marker-end','url(#arr-'+color.replace('#','')+')');
   svg.appendChild(path);
 
-  // Label at curve midpoint
-  var mx=.125*x1+.375*c1x+.375*c2x+.125*x2;
-  var my=.125*fy+.375*c1y+.375*c2y+.125*ty;
+  // Label at bezier midpoint (t = 0.5)
+  var mx=0.125*x1+0.375*c1x+0.375*c2x+0.125*x2;
+  var my=(fy+ty)/2;
   var txt=document.createElementNS('http://www.w3.org/2000/svg','text');
-  txt.setAttribute('x',mx);txt.setAttribute('y',my);
+  txt.setAttribute('x',String(mx));txt.setAttribute('y',String(my));
   txt.setAttribute('text-anchor','middle');txt.setAttribute('dominant-baseline','central');
   txt.setAttribute('fill','#fff');txt.setAttribute('font-size','9px');txt.setAttribute('font-weight','bold');
   txt.setAttribute('style','pointer-events:none;text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;');

@@ -204,10 +204,8 @@ button:hover{background:var(--vscode-button-hoverBackground,#005fa3);}
 .cl-item{display:flex;align-items:center;margin:2px 0;}
 .cl-dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;flex-shrink:0;}
 .anatomy-zoomable{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform;display:flex;flex-direction:column;padding:10px;min-width:600px;}
-.aflow{display:flex;justify-content:space-around;align-items:center;background:#1e1e1e;border:1px solid #333;border-radius:4px;padding:5px 8px;margin-bottom:8px;font-size:0.75rem;flex-shrink:0;}
-.aflow-arrow{font-size:1rem;color:#666;}
 .layers-row{display:flex;gap:10px;flex:1;position:relative;}
-.layer-col{flex:1;display:flex;flex-direction:column;border-radius:4px;background:#1a1a1a;border:1px solid #2d2d2d;min-width:0;}
+.layer-col{flex:1;display:flex;flex-direction:column;border-radius:4px;background:#1a1a1a;border:1px solid #2d2d2d;min-width:0;min-height:80px;}
 .layer-col.pres{border-top:3px solid #8e44ad;}
 .layer-col.uc{border-top:3px solid #f1c40f;}
 .layer-col.dom{border-top:3px solid #f39c12;}
@@ -755,9 +753,15 @@ function _showDetail(node,data){
 
 // ── Anatomy renderer ──────────────────────────────────────────────────────────
 function _renderAnatomy(anatomy){
+  var totalProv=(anatomy.presentation.totalProviderCount||0)
+    +(anatomy.domain.totalProviderCount||0)
+    +((anatomy.useCases&&anatomy.useCases.totalProviderCount)||0)
+    +(anatomy.data.totalProviderCount||0);
   document.getElementById('insp-title').innerHTML=
-    '3-Layer Inspector: <span style="color:#f1c40f;font-family:monospace;">'+_esc(anatomy.featureName.toUpperCase())+'</span>'
-    +'<span style="font-size:0.7rem;color:#888;font-weight:normal;margin-left:10px;">Presentation &#x27A1; Domain &#x27A1; Data</span>';
+    '<span style="color:#f1c40f;font-family:monospace;">'+_esc(anatomy.featureName.toUpperCase())+'</span>'
+    +'<span style="font-size:0.7rem;color:#666;font-weight:normal;margin-left:8px;">'
+    +totalProv+' provider'+(totalProv!==1?'s':'')+' \xb7 hover a card to trace dependencies'
+    +'</span>';
 
   // Violations panel
   var vw=document.getElementById('violations-wrap');
@@ -773,21 +777,42 @@ function _renderAnatomy(anatomy){
     vw.innerHTML='';vw.style.display='none';
   }
 
+  // Builds the HTML for a single layer column.
+  // Classes that share a name with an existing provider are omitted (redundant).
+  // If the file has providers, only non-provider classes are shown (max 4).
+  // If the file has no providers, all classes are shown (they are the main content).
   function buildLayer(layerData){
     if(!layerData||layerData.files.length===0){
-      return '<div style="color:#444;text-align:center;padding:10px;font-size:0.72rem;font-style:italic;">No files detected</div>';
+      return '<div style="color:#3a3a3a;text-align:center;padding:12px 8px;font-size:0.72rem;font-style:italic;">No files</div>';
     }
     return layerData.files.map(function(file){
+      var providerNames=new Set((file.providers||[]).map(function(p){return p.name;}));
+      var relevantClasses=(file.classes||[]).filter(function(c){
+        // Skip if the class name is trivially derivable from the provider name
+        // (e.g. class "CompaniesNotifier" when "companiesStateProvider" exists)
+        return !Array.from(providerNames).some(function(pn){
+          return pn.toLowerCase().replace(/provider$/,'').includes(c.toLowerCase().replace(/notifier$/,'').replace(/impl$/,'').replace(/repository$/,'').replace(/datasource$/,'')) && c.length>3;
+        });
+      });
+      var hasProviders=file.providers&&file.providers.length>0;
+      var classesToShow=hasProviders
+        ? relevantClasses.slice(0,4)   // at most 4 non-redundant classes when providers present
+        : (file.classes||[]).slice(0,8); // up to 8 when no providers (classes ARE the content)
+
       var classHtml='';
-      if(file.classes&&file.classes.length){
-        classHtml='<div style="margin-top:2px;">'
-          +file.classes.map(function(c){return '<span class="cbadge">'+_esc(c)+'</span>';}).join('')
+      if(classesToShow.length){
+        classHtml='<div style="margin-top:3px;line-height:1.6;">'
+          +classesToShow.map(function(c){return '<span class="cbadge">'+_esc(c)+'</span>';}).join('')
+          +((hasProviders&&relevantClasses.length>4)?'<span class="cbadge" style="opacity:.5;">+'+
+            (relevantClasses.length-4)+'</span>':'')
           +'</div>';
       }
+
       var provHtml='';
       if(file.providers&&file.providers.length){
         provHtml=file.providers.map(function(p){
           var cid='prov-'+p.name.replace(/[^a-zA-Z0-9_]/g,'_');
+          var depCount=(p.dependencies||[]).length;
           return '<div class="prov-card" id="'+cid+'"'
             +' data-pname="'+_esc(p.name)+'"'
             +' data-apath="'+_esc(p.absolutePath||'')+'"'
@@ -797,6 +822,7 @@ function _renderAnatomy(anatomy){
             +'<div class="prov-meta">'
             +'<span class="badge-t">'+_esc(p.providerType)+'</span>'
             +'<span class="badge-r">'+_esc(p.returnType)+'</span>'
+            +(depCount>0?'<span style="margin-left:auto;font-size:0.6rem;color:#888;">'+depCount+' dep'+(depCount>1?'s':'')+'</span>':'')
             +'</div></div>';
         }).join('');
       }
@@ -812,18 +838,6 @@ function _renderAnatomy(anatomy){
   var hasUseCases=anatomy.useCases&&anatomy.useCases.files.length>0;
   var ucCount=hasUseCases?anatomy.useCases.totalProviderCount:0;
 
-  var flowBar='<div class="aflow">'
-    +'<div style="text-align:center;flex:1;"><strong style="color:#d7bde2;">PRESENTATION</strong><div style="font-size:0.65rem;color:#777;">UI &amp; Controllers</div></div>'
-    +'<div class="aflow-arrow">&#x27A1;</div>';
-  if(hasUseCases){
-    flowBar+='<div style="text-align:center;flex:1;"><strong style="color:#fef9e7;">USE CASES</strong><div style="font-size:0.65rem;color:#777;">Business Logic</div></div>'
-      +'<div class="aflow-arrow">&#x27A1;</div>';
-  }
-  flowBar+='<div style="text-align:center;flex:1;"><strong style="color:#fdebd0;">DOMAIN</strong><div style="font-size:0.65rem;color:#777;">Entities &amp; Repos</div></div>'
-    +'<div class="aflow-arrow">&#x27A1;</div>'
-    +'<div style="text-align:center;flex:1;"><strong style="color:#d1f2eb;">DATA</strong><div style="font-size:0.65rem;color:#777;">Repos &amp; Sources</div></div>'
-    +'</div>';
-
   var ucCol=hasUseCases
     ?'<div class="layer-col uc">'
         +'<div class="layer-head uc"><span>Use Cases</span>'
@@ -832,8 +846,7 @@ function _renderAnatomy(anatomy){
       +'</div>'
     :'';
 
-  var html=flowBar
-    +'<div class="layers-row">'
+  var html='<div class="layers-row">'
       +'<div class="layer-col pres">'
         +'<div class="layer-head pres"><span>Presentation</span>'
           +'<span class="cbadge" style="background:rgba(142,68,173,.15);border-color:#8e44ad;color:#d7bde2;">'+presCount+' prov</span></div>'
@@ -884,7 +897,7 @@ function _renderAnatomy(anatomy){
 function _drawConnections(targetId){
   var svg=document.getElementById('conn-svg');
   if(!svg)return;
-  svg.innerHTML=_arrowDefs(aSx);
+  svg.innerHTML=_arrowDefs();
 
   var targetCard=document.getElementById(targetId);
   if(!targetCard)return;
@@ -942,22 +955,22 @@ function _bezierArrow(fromEl,toEl,color,svg,si,st,ei,et,label){
   var fr=fromEl.getBoundingClientRect();
   var tr=toEl.getBoundingClientRect();
 
-  function ux(v){return (v-aTx)/aSx;}
-  function uy(v){return (v-aTy)/aSx;}
-
-  var fy=uy(fr.top-vp.top)+(fr.height/aSx)*_fanY(si,st);
-  var ty=uy(tr.top-vp.top)+(tr.height/aSx)*_fanY(ei,et);
-  var fx_r=ux(fr.right-vp.left),fx_l=ux(fr.left-vp.left);
-  var tx_r=ux(tr.right-vp.left),tx_l=ux(tr.left-vp.left);
+  // #conn-svg sits OUTSIDE the scaled canvas — its coordinates are 1:1
+  // with the viewport. getBoundingClientRect() already gives us viewport-
+  // relative positions, so NO inverse transform is needed.
+  var fy=(fr.top-vp.top)+fr.height*_fanY(si,st);
+  var ty=(tr.top-vp.top)+tr.height*_fanY(ei,et);
+  var fx_r=fr.right-vp.left, fx_l=fr.left-vp.left;
+  var tx_r=tr.right-vp.left, tx_l=tr.left-vp.left;
 
   var x1,x2;
   if(fx_r<tx_l){x1=fx_r;x2=tx_l;}
   else if(tx_r<fx_l){x1=fx_l;x2=tx_r;}
   else{x1=fx_r;x2=tx_r;}
 
-  var dx=Math.abs(x2-x1),cp=Math.max(50,Math.min(160,dx*.45));
+  var dx=Math.abs(x2-x1),cp=Math.max(40,Math.min(160,dx*.45));
   var isRev=(x2<x1);
-  var flex=(si-(st-1)/2)*14;
+  var flex=(si-(st-1)/2)*12;
   var c1x=x1+(isRev?-cp:cp),c1y=fy+flex;
   var c2x=x2-(isRev?-cp:cp),c2y=ty-flex;
 
@@ -965,7 +978,7 @@ function _bezierArrow(fromEl,toEl,color,svg,si,st,ei,et,label){
   var path=document.createElementNS('http://www.w3.org/2000/svg','path');
   path.setAttribute('d',d);
   path.setAttribute('class','conn-path');
-  path.setAttribute('stroke-width',String(Math.max(1.1,1.8*aSx)));
+  path.setAttribute('stroke-width','1.8');
   path.setAttribute('stroke',color);
   path.setAttribute('marker-end','url(#arr-'+color.replace('#','')+')');
   svg.appendChild(path);
@@ -976,7 +989,7 @@ function _bezierArrow(fromEl,toEl,color,svg,si,st,ei,et,label){
   var txt=document.createElementNS('http://www.w3.org/2000/svg','text');
   txt.setAttribute('x',mx);txt.setAttribute('y',my);
   txt.setAttribute('text-anchor','middle');txt.setAttribute('dominant-baseline','central');
-  txt.setAttribute('fill','#fff');txt.setAttribute('font-size',String(Math.max(7,9*aSx))+'px');txt.setAttribute('font-weight','bold');
+  txt.setAttribute('fill','#fff');txt.setAttribute('font-size','9px');txt.setAttribute('font-weight','bold');
   txt.setAttribute('style','pointer-events:none;text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;');
   txt.textContent=label;
   svg.appendChild(txt);
@@ -987,13 +1000,10 @@ function _fanY(i,total){
   return .15+.7*(i/(total-1));
 }
 
-function _arrowDefs(scale){
-  var s=Math.max(.7,Math.min(2.2,scale||1));
-  var markerW=(6*s).toFixed(2);
-  var markerH=(6*s).toFixed(2);
+function _arrowDefs(){
   return '<defs>'
-    +'<marker id="arr-f39c12" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="'+markerW+'" markerHeight="'+markerH+'" orient="auto-start-reverse"><path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#f39c12"/></marker>'
-    +'<marker id="arr-3498db" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="'+markerW+'" markerHeight="'+markerH+'" orient="auto-start-reverse"><path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#3498db"/></marker>'
+    +'<marker id="arr-f39c12" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#f39c12"/></marker>'
+    +'<marker id="arr-3498db" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#3498db"/></marker>'
     +'</defs>';
 }
 
@@ -1001,12 +1011,12 @@ function _clearConnections(){
   _hoveredProvId=null;
   document.querySelectorAll('.prov-card').forEach(function(c){c.classList.remove('active-prov','dep-out','dep-in');});
   var svg=document.getElementById('conn-svg');
-  if(svg)svg.innerHTML=_arrowDefs(aSx);
+  if(svg)svg.innerHTML=_arrowDefs();
 }
 
 function _redrawConn(){
   if(_hoveredProvId){_drawConnections(_hoveredProvId);}
-  else{var svg=document.getElementById('conn-svg');if(svg)svg.innerHTML=_arrowDefs(aSx);}
+  else{var svg=document.getElementById('conn-svg');if(svg)svg.innerHTML=_arrowDefs();}
 }
 
 function _esc(s){

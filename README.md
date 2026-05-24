@@ -28,6 +28,34 @@ This extension was created with the help of ChatGPT for the sole purpose of simp
 
   Creates the base files use for routing.
 
+- **MVVM Flutter: Show Architecture Diagram** *(State & Dependency Inspector)*
+
+  Opens a WebView panel with two tools:
+
+  - **Dependency Map** — interactive graph of all features and global Riverpod providers.
+    Nodes are grouped in two zones (Features / Global Providers), colour-coded by role and
+    connection count. Three edge types distinguish feature-to-feature, feature-to-global and
+    global-to-feature dependencies.
+    - **Health bar** — live metrics strip above the map: feature count, global provider count,
+      unused provider warnings (⚠) and circular dependency alerts (↺).
+    - **Orphan detection** — global providers with zero usages are highlighted in amber.
+    - **Cycle detection** — circular dependencies between features are highlighted in red (nodes
+      and edges); a counter appears in the health bar.
+    - **Hover highlight** — hovering a node dims all unrelated nodes and edges.
+    - **Auto-refresh** — the diagram refreshes automatically (~1.5 s) whenever a `.dart` file is saved.
+
+  - **3-Layer Inspector** — click any feature in the map to open its layered anatomy:
+    Presentation → (Use Cases) → Domain → Data. Provider cards show type, return type and
+    dependency count; hover a card to trace incoming/outgoing connections with animated bezier
+    arrows. Layer violations (e.g. data importing presentation) are listed below the header.
+
+- **MVVM Flutter: Create Clean Riverpod Feature**
+
+  Generates a complete feature scaffold following Clean Architecture + Riverpod 2/3
+  (feature-first layout): datasource interface, local/remote implementations, repository,
+  optional use cases (with their own `Provider<T>`), `AsyncNotifierProvider` state notifier
+  and a ready-to-use `ConsumerWidget` screen.
+
 
 ## Usage
 

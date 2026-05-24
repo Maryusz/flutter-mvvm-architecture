@@ -351,6 +351,19 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // Auto-refresh the diagram when a Dart file is saved
+  let _autoRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+  context.subscriptions.push(
+    vscode.workspace.onDidSaveTextDocument((doc) => {
+      if (!doc.uri.fsPath.endsWith('.dart')) { return; }
+      if (!StateDiagramPanel.currentPanel) { return; }
+      clearTimeout(_autoRefreshTimer);
+      _autoRefreshTimer = setTimeout(() => {
+        StateDiagramPanel.currentPanel?.refreshData();
+      }, 1500);
+    })
+  );
+
   context.subscriptions.push(createProjectStructureCmd);
   context.subscriptions.push(createFeatureInPresentationLayerCmd);
   context.subscriptions.push(createFeatureInAllLayersCmd);

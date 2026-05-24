@@ -17,6 +17,7 @@ export interface ArchitectureDiagramData {
   nodes: DependencyNode[];
   edges: DependencyEdge[];
   globalProviders: DartProviderInfo[];
+  cycles: string[][];   // each sub-array is an ordered cycle of feature IDs
 }
 
 export interface DartProviderInfo {
@@ -88,7 +89,7 @@ export async function analyzeWorkspaceDependencies(
 
   const libDir = path.join(rootPath, "lib");
   if (!fs.existsSync(libDir)) {
-    return { nodes: [], edges: [], globalProviders: [] };
+    return { nodes: [], edges: [], globalProviders: [], cycles: [] };
   }
 
   // Try common Flutter project structures in priority order
@@ -230,10 +231,13 @@ export async function analyzeWorkspaceDependencies(
     }
   }
 
+  const cycles = _detectCycles(featuresList, edgesList);
+
   return {
     nodes: Array.from(nodesMap.values()),
     edges: edgesList,
     globalProviders: globalProvidersList,
+    cycles,
   };
 }
 
@@ -249,6 +253,70 @@ function addDependency(
     edgesSet.add(edgeKey);
     edgesList.push({ from, to });
   }
+}
+
+/**
+ * Detects cycles among features using iterative DFS.
+ * Only considers feature→feature edges (ignores global-provider edges).
+ * Returns an array of cycles; each cycle is an array of feature IDs.
+ */
+function _detectCycles(featureIds: string[], edges: DependencyEdge[]): string[][] {
+  const featureSet = new Set(featureIds);
+  // Build adjacency list for features only
+  const adj = new Map<string, string[]>();
+  for (const id of featureIds) { adj.set(id, []); }
+  for (const e of edges) {
+    if (featureSet.has(e.from) && featureSet.has(e.to)) {
+      adj.get(e.from)!.push(e.to);
+    }
+  }
+
+  const visited = new Set<string>();
+  const cycles: string[][] = [];
+  const cycleNodesSeen = new Set<string>(); // avoid duplicate cycles
+
+  for (const start of featureIds) {
+    if (visited.has(start)) { continue; }
+    // DFS with explicit stack; track the current path
+    const stack: Array<{ node: string; neighbors: string[]; idx: number }> = [];
+    const path: string[] = [];
+    const onPath = new Set<string>();
+
+    stack.push({ node: start, neighbors: adj.get(start) || [], idx: 0 });
+    path.push(start);
+    onPath.add(start);
+
+    while (stack.length > 0) {
+      const frame = stack[stack.length - 1];
+      if (frame.idx < frame.neighbors.length) {
+        const next = frame.neighbors[frame.idx++];
+        if (onPath.has(next)) {
+          // Found a cycle — extract it from the current path
+          const cycleStart = path.indexOf(next);
+          const cycle = path.slice(cycleStart);
+          // Deduplicate by canonical form (rotate to smallest node first)
+          const minIdx = cycle.indexOf([...cycle].sort()[0]);
+          const canonical = [...cycle.slice(minIdx), ...cycle.slice(0, minIdx)].join(',');
+          if (!cycleNodesSeen.has(canonical)) {
+            cycleNodesSeen.add(canonical);
+            cycles.push(cycle);
+          }
+        } else if (!visited.has(next)) {
+          stack.push({ node: next, neighbors: adj.get(next) || [], idx: 0 });
+          path.push(next);
+          onPath.add(next);
+        }
+      } else {
+        // Backtrack
+        visited.add(frame.node);
+        stack.pop();
+        path.pop();
+        onPath.delete(frame.node);
+      }
+    }
+  }
+
+  return cycles;
 }
 
 /**

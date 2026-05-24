@@ -195,6 +195,12 @@ button:hover{background:var(--vscode-button-hoverBackground,#005fa3);}
 .map-search{width:100%;background:#1e1e1e;border:1px solid #3c3c3c;color:#ccc;padding:4px 6px;border-radius:2px;font-size:0.75rem;margin-bottom:6px;outline:none;}
 .map-search:focus{border-color:#007acc;}
 .sb-group-label{font-size:0.63rem;color:#666;text-transform:uppercase;letter-spacing:.5px;margin:6px 0 3px;font-weight:bold;}
+/* Cycle / orphan indicators */
+.gnode.cycle-node{box-shadow:0 0 0 2px #e74c3c,0 0 8px rgba(231,76,60,.35) !important;}
+/* Health bar */
+#health-bar{display:flex;align-items:center;gap:14px;padding:4px 10px;background:#1a1a1a;border-bottom:1px solid #2d2d2d;font-size:0.7rem;flex-shrink:0;}
+.hb-stat{display:flex;align-items:center;gap:4px;font-weight:500;}
+.hb-label{font-size:0.65rem;color:#666;margin-left:1px;}
 /* Inspector tab */
 #inspector-wrap{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;padding-top:8px;}
 .insp-header{font-size:0.95rem;font-weight:500;margin-bottom:6px;border-bottom:1px solid #3c3c3c;padding-bottom:5px;color:#007acc;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;}
@@ -253,7 +259,13 @@ button:hover{background:var(--vscode-button-hoverBackground,#005fa3);}
 </div>
 
 <!-- TAB 1: Dependency Map -->
-<div class="tab-content active" id="tab-map">
+<div class="tab-content active" id="tab-map" style="flex-direction:column;">
+  <div id="health-bar">
+    <span id="hb-feats" class="hb-stat" style="color:#3498db;"></span>
+    <span id="hb-globs" class="hb-stat" style="color:#9b59b6;"></span>
+    <span id="hb-orphans" class="hb-stat" style="color:#f39c12;display:none;"></span>
+    <span id="hb-cycles" class="hb-stat" style="color:#e74c3c;display:none;"></span>
+  </div>
   <div id="main-map-layout">
     <div id="map-viewport" class="viewport">
       <div class="zoom-hud">
@@ -278,10 +290,13 @@ button:hover{background:var(--vscode-button-hoverBackground,#005fa3);}
         <div class="leg-item"><div class="leg-dot" style="background:#0f2a1a;border:1px solid #2ecc71;"></div><span>Standalone Feature</span></div>
         <div class="leg-item"><div class="leg-dot" style="background:#0f2540;border:1px solid #3498db;"></div><span>Feature with Deps</span></div>
         <div class="leg-item"><div class="leg-dot" style="background:#3d1a00;border:1px solid #e67e22;"></div><span>Global Provider</span></div>
+        <div class="leg-item"><div class="leg-dot" style="background:#3d2800;border:1px solid #f39c12;"></div><span>Unused Provider ⚠</span></div>
+        <div class="leg-item"><div class="leg-dot" style="background:#0f2540;border:2px solid #e74c3c;box-shadow:0 0 4px rgba(231,76,60,.4);"></div><span>Cycle Node ↺</span></div>
         <div style="margin-top:6px;border-top:1px solid #333;padding-top:5px;">
           <div class="leg-item"><span style="display:inline-block;width:18px;height:2px;background:#3498db;margin-right:7px;"></span><span>Feature → Feature</span></div>
           <div class="leg-item"><span style="display:inline-block;width:18px;height:2px;background:#e67e22;border-top:2px dashed #e67e22;height:0;margin-right:7px;"></span><span>Feature → Global</span></div>
           <div class="leg-item"><span style="display:inline-block;width:18px;height:0;border-top:2px dashed #9b59b6;margin-right:7px;"></span><span>Global → Feature</span></div>
+          <div class="leg-item"><span style="display:inline-block;width:18px;height:2px;background:#e74c3c;margin-right:7px;"></span><span>Circular Dep ↺</span></div>
         </div>
         <div style="margin-top:5px;border-top:1px solid #333;padding-top:5px;">
           <div class="leg-item" style="gap:4px;"><span class="dep-out">→N</span><span style="font-size:0.68rem;">outgoing deps</span></div>
@@ -506,6 +521,34 @@ function _renderMap(data){
     }
   });
 
+  // ── Cycle and orphan data ─────────────────────────────────────────────────
+  var cycles=data.cycles||[];
+  var cycleNodeIds=new Set();
+  cycles.forEach(function(c){c.forEach(function(id){cycleNodeIds.add(id);});});
+  var cycleEdgeKeys=new Set();
+  edges.forEach(function(e){
+    if(cycleNodeIds.has(e.from)&&cycleNodeIds.has(e.to)){cycleEdgeKeys.add(e.from+'->'+e.to);}
+  });
+  var orphanCount=globals.filter(function(n){return (globUsage[n.id]||0)===0;}).length;
+
+  // ── Update health bar ─────────────────────────────────────────────────────
+  (function(){
+    var hbF=document.getElementById('hb-feats');
+    var hbG=document.getElementById('hb-globs');
+    var hbO=document.getElementById('hb-orphans');
+    var hbC=document.getElementById('hb-cycles');
+    if(hbF)hbF.innerHTML='■ '+features.length+' <span class="hb-label">feature'+(features.length!==1?'s':'')+'</span>';
+    if(hbG)hbG.innerHTML='■ '+globals.length+' <span class="hb-label">global provider'+(globals.length!==1?'s':'')+'</span>';
+    if(hbO){
+      if(orphanCount>0){hbO.innerHTML='⚠ '+orphanCount+' <span class="hb-label">unused provider'+(orphanCount!==1?'s':'')+'</span>';hbO.style.display='';}
+      else{hbO.style.display='none';}
+    }
+    if(hbC){
+      if(cycles.length>0){hbC.innerHTML='↺ '+cycles.length+' <span class="hb-label">cycle'+(cycles.length!==1?'s':'')+'</span>';hbC.style.display='';}
+      else{hbC.style.display='none';}
+    }
+  })();
+
   // ── Sort: features by total connections desc, then alpha ──────────────────
   features.sort(function(a,b){
     var ca=(outCount[a.id]||0)+(inCount[a.id]||0);
@@ -563,6 +606,7 @@ function _renderMap(data){
     +'<marker id="marr-feat" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#3498db"/></marker>'
     +'<marker id="marr-glob" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#e67e22"/></marker>'
     +'<marker id="marr-rev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#9b59b6"/></marker>'
+    +'<marker id="marr-cycle" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#e74c3c"/></marker>'
     +'</defs>';
   var svgPaths='';
 
@@ -576,6 +620,8 @@ function _renderMap(data){
     if(!fromIsGlob&&!toIsGlob){stroke='#3498db';dash='';marker='marr-feat';sw='2';}
     else if(!fromIsGlob&&toIsGlob){stroke='#e67e22';dash='stroke-dasharray="5 3"';marker='marr-glob';sw='1.5';}
     else{stroke='#9b59b6';dash='stroke-dasharray="3 4"';marker='marr-rev';sw='1.3';}
+    // Cycle edge overrides colour
+    if(cycleEdgeKeys.has(e.from+'->'+e.to)){stroke='#e74c3c';dash='';marker='marr-cycle';sw='2.5';}
 
     var x1,y1,x2,y2;
     if(fp.x+NW<=tp.x){x1=fp.x+NW;y1=fp.y+NH/2;x2=tp.x;y2=tp.y+NH/2;}
@@ -599,16 +645,20 @@ function _renderMap(data){
     var p=pos[n.id];
     if(!p)return;
     var isGlob=(n.group==='global_provider');
+    var isOrphan=isGlob&&(globUsage[n.id]||0)===0;
     var bg,border;
-    if(isGlob){bg='#3d1a00';border='#e67e22';}
+    if(isGlob){bg=isOrphan?'#3d2800':'#3d1a00';border=isOrphan?'#f39c12':'#e67e22';}
     else if((outCount[n.id]||0)+(inCount[n.id]||0)>0){bg='#0f2540';border='#3498db';}
     else{bg='#0f2a1a';border='#2ecc71';}
 
     var countersHtml='';
     if(isGlob){
       var usages=globUsage[n.id]||0;
-      if(usages>0)countersHtml='<div class="gnode-counters"><span class="use-cnt">\xd7'+usages+' used</span></div>';
-      else countersHtml='<div class="gnode-sub">Global Provider</div>';
+      if(usages>0){
+        countersHtml='<div class="gnode-counters"><span class="use-cnt">\xd7'+usages+' used</span></div>';
+      } else {
+        countersHtml='<div class="gnode-counters"><span class="use-cnt" style="color:#f39c12;background:rgba(243,156,18,.18);">⚠ unused</span></div>';
+      }
     } else {
       var parts=[];
       if((outCount[n.id]||0)>0)parts.push('<span class="dep-out">→'+(outCount[n.id])+'</span>');
@@ -617,7 +667,8 @@ function _renderMap(data){
         ?'<div class="gnode-counters">'+parts.join('')+'</div>'
         :'<div class="gnode-sub">Feature</div>';
     }
-    nodesHtml+='<div class="gnode" data-nid="'+_esc(n.id)+'"'
+    var extraClass=cycleNodeIds.has(n.id)?' cycle-node':'';
+    nodesHtml+='<div class="gnode'+extraClass+'" data-nid="'+_esc(n.id)+'"'
       +' style="left:'+p.x+'px;top:'+p.y+'px;width:'+NW+'px;height:'+NH+'px;z-index:3;'
       +'background:'+bg+';border:2px solid '+border+';">'
       +'<div class="gnode-label">'+_esc(n.label)+'</div>'

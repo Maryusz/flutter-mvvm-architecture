@@ -68,7 +68,7 @@ abstract class Remote${classSingular}DataSource {
   files[`lib/features/${featurePlural}/data/local/local_${featurePlural}_datasource.dart`] = `import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../${featurePlural}_datasource_interface.dart';
 
-final local${classPlural}DataSourceProvider = Provider<Local${classPlural}DataSource>((ref) {
+final local${classPlural}DataSourceProvider = Provider<Local${classSingular}DataSource>((ref) {
   return Local${classPlural}DataSourceImpl();
 });
 
@@ -81,7 +81,7 @@ class Local${classPlural}DataSourceImpl implements Local${classSingular}DataSour
   files[`lib/features/${featurePlural}/data/remote/remote_${featurePlural}_datasource.dart`] = `import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../${featurePlural}_datasource_interface.dart';
 
-final remote${classPlural}DataSourceProvider = Provider<Remote${classPlural}DataSource>((ref) {
+final remote${classPlural}DataSourceProvider = Provider<Remote${classSingular}DataSource>((ref) {
   return Remote${classPlural}DataSourceImpl();
 });
 
@@ -96,6 +96,10 @@ import '../data/${featurePlural}_datasource_interface.dart';
 import '../data/local/local_${featurePlural}_datasource.dart';
 import '../data/remote/remote_${featurePlural}_datasource.dart';
 
+abstract class ${classPlural}Repository {
+  //! Always define repository methods here, even if they are not implemented yet. This ensures a clear contract for the data layer and allows for easier testing and future expansion.
+}
+
 final ${repositoryProviderName} = Provider<${classPlural}Repository>((ref) {
   final localDs = ref.watch(local${classPlural}DataSourceProvider);
   final remoteDs = ref.watch(remote${classPlural}DataSourceProvider);
@@ -104,9 +108,6 @@ final ${repositoryProviderName} = Provider<${classPlural}Repository>((ref) {
     remoteDatasource: remoteDs,
   );
 });
-
-abstract class ${classPlural}Repository {
-}
 
 class ${classPlural}RepositoryImpl implements ${classPlural}Repository {
   final Local${classSingular}DataSource _localDatasource;

@@ -56,6 +56,25 @@ This extension was created with the help of AI coding agents (Claude code, Codex
   optional use cases (with their own `Provider<T>`), `AsyncNotifierProvider` state notifier
   and a ready-to-use `ConsumerWidget` screen.
 
+  You will be asked for the **plural** feature name (e.g. `companies`); the singular form is
+  auto-deduced (e.g. `company`).
+
+  **Generated files** (example: feature `companies` / class `Company`):
+
+  | File | Key class |
+  |------|-----------|
+  | `data/companies_datasource_interface.dart` | `LocalCompanyDataSource` (abstract), `RemoteCompanyDataSource` (abstract) |
+  | `data/local/local_companies_datasource.dart` | `LocalCompaniesDataSourceImpl implements LocalCompanyDataSource` |
+  | `data/remote/remote_companies_datasource.dart` | `RemoteCompaniesDataSourceImpl implements RemoteCompanyDataSource` |
+  | `domain/companies_repository.dart` | `CompaniesRepository` (abstract), `CompaniesRepositoryImpl` |
+  | `domain/usecases/get_companies.dart` | `GetCompanies` *(optional)* |
+  | `presentation/providers/companies_state_provider.dart` | `CompaniesNotifier` |
+  | `presentation/screens/companies_screen.dart` | `CompaniesScreen` |
+
+  **Naming convention:** interfaces use the *singular* class name (`LocalCompanyDataSource`);
+  concrete implementations and providers use the *plural* form
+  (`LocalCompaniesDataSourceImpl`, `localCompaniesDataSourceProvider`).
+
 
 ## Usage
 

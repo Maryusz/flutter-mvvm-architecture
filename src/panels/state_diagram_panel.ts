@@ -191,6 +191,11 @@ button:hover{background:var(--vscode-button-hoverBackground,#005fa3);}
 .edge-path{transition:opacity .12s;}
 .edge-path.dimmed{opacity:0.05 !important;}
 .edge-path.lit{opacity:1 !important;stroke-width:2.6px !important;}
+.edge-path.lit-dep{opacity:1 !important;stroke-width:2.6px !important;}
+.edge-path.lit-user{opacity:1 !important;stroke-width:2.6px !important;}
+/* Directional hover classes */
+.gnode.lit-dep{opacity:1;box-shadow:0 0 0 2px #e67e22,0 0 6px rgba(230,126,34,.4) !important;}
+.gnode.lit-user{opacity:1;box-shadow:0 0 0 2px #3498db,0 0 6px rgba(52,152,219,.4) !important;}
 /* Sidebar search */
 .map-search{width:100%;background:#1e1e1e;border:1px solid #3c3c3c;color:#ccc;padding:4px 6px;border-radius:2px;font-size:0.75rem;margin-bottom:6px;outline:none;}
 .map-search:focus{border-color:#007acc;}
@@ -245,6 +250,9 @@ button:hover{background:var(--vscode-button-hoverBackground,#005fa3);}
 </style>
 </head>
 <body>
+<!-- Floating tooltip for map hover — shown via JS, never interactable -->
+<div id="map-tooltip" style="position:fixed;display:none;pointer-events:none;z-index:9999;background:#1a1a2e;border:1px solid #444;border-radius:6px;padding:8px 12px;font-size:0.72rem;max-width:280px;box-shadow:0 4px 16px rgba(0,0,0,.7);line-height:1.6;"></div>
+
 <header>
   <div style="display:flex;align-items:center;">
     <h1>MVVM Flutter: State &amp; Dependency Inspector</h1>
@@ -565,7 +573,6 @@ function _renderMap(data){
 
   // ── Layout ────────────────────────────────────────────────────────────────
   var FEAT_COLS=Math.min(4, features.length||1);
-  var GLOB_COLS=Math.min(5, globals.length||1);
   var pos={};
 
   features.forEach(function(n,i){
@@ -578,14 +585,66 @@ function _renderMap(data){
   var FEAT_ZONE_W=ZP+FEAT_COLS*(NW+HG)-HG+ZP;
 
   var globZoneY=features.length>0 ? featZoneH+ZONE_GAP : 0;
-  globals.forEach(function(n,i){
-    var col=i%GLOB_COLS, row=Math.floor(i/GLOB_COLS);
-    pos[n.id]={x:ZP+col*(NW+HG), y:globZoneY+ZLH+ZP+row*(NH+VG)};
+
+  // ── Hierarchical layout for global providers ──────────────────────────────
+  // Build global→global adjacency to compute topological levels.
+  // Level = max chain length of global deps from this node (0 = no global deps).
+  // Layout: level 0 on the LEFT (foundational), level N on the RIGHT (most composed).
+  // Arrows point right (from dependent toward its dependency).
+  var globSet=new Set(globals.map(function(n){return n.id;}));
+  var globOutAdj={};
+  globals.forEach(function(n){globOutAdj[n.id]=[];});
+  edges.forEach(function(e){
+    if(globSet.has(e.from)&&globSet.has(e.to)){globOutAdj[e.from].push(e.to);}
   });
 
-  var globRows=Math.ceil(globals.length/GLOB_COLS)||0;
-  var globZoneH=globals.length>0 ? ZLH+ZP+globRows*(NH+VG)+ZP : 0;
-  var GLOB_ZONE_W=globals.length>0 ? ZP+GLOB_COLS*(NW+HG)-HG+ZP : 0;
+  var globLevel={};
+  globals.forEach(function(n){globLevel[n.id]=-1;});
+  function _computeGlobLevel(id,stack){
+    if(globLevel[id]>=0){return globLevel[id];}
+    if(stack.has(id)){globLevel[id]=0;return 0;} // cycle fallback
+    stack.add(id);
+    var deps=globOutAdj[id]||[];
+    var maxDep=deps.reduce(function(mx,dep){
+      return Math.max(mx, globSet.has(dep)?_computeGlobLevel(dep,stack):-1);
+    },-1);
+    stack.delete(id);
+    globLevel[id]=maxDep+1;
+    return globLevel[id];
+  }
+  globals.forEach(function(n){_computeGlobLevel(n.id,new Set());});
+
+  var levelGroups={};
+  var maxGlobLevel=0;
+  globals.forEach(function(n){
+    var lv=globLevel[n.id]||0;
+    maxGlobLevel=Math.max(maxGlobLevel,lv);
+    if(!levelGroups[lv]){levelGroups[lv]=[];}
+    levelGroups[lv].push(n);
+  });
+  // Within each level: most used first, then alpha
+  Object.keys(levelGroups).forEach(function(lv){
+    levelGroups[lv].sort(function(a,b){
+      var ua=globUsage[a.id]||0,ub=globUsage[b.id]||0;
+      if(ub!==ua){return ub-ua;}
+      return a.label.localeCompare(b.label);
+    });
+  });
+
+  var maxRowInLevel=0;
+  for(var _lv=0;_lv<=maxGlobLevel;_lv++){
+    maxRowInLevel=Math.max(maxRowInLevel,(levelGroups[_lv]||[]).length);
+  }
+  for(var _lv=0;_lv<=maxGlobLevel;_lv++){
+    var _grp=levelGroups[_lv]||[];
+    _grp.forEach(function(n,row){
+      pos[n.id]={x:ZP+_lv*(NW+HG), y:globZoneY+ZLH+ZP+row*(NH+VG)};
+    });
+  }
+
+  var usedGlobCols=maxGlobLevel+1;
+  var GLOB_ZONE_W=globals.length>0 ? ZP+usedGlobCols*(NW+HG)-HG+ZP : 0;
+  var globZoneH=globals.length>0 ? ZLH+ZP+maxRowInLevel*(NH+VG)+ZP : 0;
 
   var totalW=Math.max(FEAT_ZONE_W, GLOB_ZONE_W, 300)+10;
   var totalH=(globals.length>0 ? globZoneY+globZoneH : featZoneH)+10;
@@ -598,7 +657,7 @@ function _renderMap(data){
   }
   if(globals.length>0){
     zoneHtml+='<div class="zone-bg zone-glob" style="left:0;top:'+globZoneY+'px;width:'+GLOB_ZONE_W+'px;height:'+globZoneH+'px;"></div>'
-      +'<div class="zone-label zone-lbl-glob" style="left:8px;top:'+(globZoneY+6)+'px;">Global Providers ('+globals.length+') · sorted by usage</div>';
+      +'<div class="zone-label zone-lbl-glob" style="left:8px;top:'+(globZoneY+6)+'px;">Global Providers ('+globals.length+')'+(maxGlobLevel>0?' · hierarchical by dependency level':' · sorted by usage')+'</div>';
   }
 
   // ── SVG edges ─────────────────────────────────────────────────────────────
@@ -653,12 +712,13 @@ function _renderMap(data){
 
     var countersHtml='';
     if(isGlob){
-      var usages=globUsage[n.id]||0;
-      if(usages>0){
-        countersHtml='<div class="gnode-counters"><span class="use-cnt">\xd7'+usages+' used</span></div>';
-      } else {
-        countersHtml='<div class="gnode-counters"><span class="use-cnt" style="color:#f39c12;background:rgba(243,156,18,.18);">⚠ unused</span></div>';
-      }
+      var totalInc=inCount[n.id]||0;  // feature + global that use this
+      var totalOut=outCount[n.id]||0; // global deps of this
+      var gparts=[];
+      if(totalOut>0){gparts.push('<span class="dep-out" style="color:#e67e22;">→'+totalOut+'</span>');}
+      if(totalInc>0){gparts.push('<span class="dep-in">←'+totalInc+'</span>');}
+      else{gparts.push('<span class="use-cnt" style="color:#f39c12;background:rgba(243,156,18,.18);">⚠ unused</span>');}
+      countersHtml='<div class="gnode-counters">'+gparts.join('')+'</div>';
     } else {
       var parts=[];
       if((outCount[n.id]||0)>0)parts.push('<span class="dep-out">→'+(outCount[n.id])+'</span>');
@@ -715,7 +775,7 @@ function _renderMap(data){
     };
   }
 
-  // ── Interaction: hover highlight ──────────────────────────────────────────
+  // ── Interaction: hover highlight + tooltip ────────────────────────────────
   canvas.querySelectorAll('.gnode').forEach(function(el){
     el.addEventListener('click',function(ev){
       ev.stopPropagation();
@@ -723,39 +783,100 @@ function _renderMap(data){
       var node=nodes.find(function(n){return n.id===id;});
       if(node)_selectNode(node,data);
     });
-    el.addEventListener('mouseenter',function(){
-      _highlightMapNode(el.getAttribute('data-nid'),edges);
+    el.addEventListener('mouseenter',function(ev){
+      var id=el.getAttribute('data-nid');
+      _highlightMapNode(id,edges);
+      _showMapTooltip(id,edges,nodeById,data.globalProviders||[],ev.clientX,ev.clientY);
     });
-    el.addEventListener('mouseleave',_clearMapHighlight);
+    el.addEventListener('mousemove',function(ev){
+      _positionTooltip(document.getElementById('map-tooltip'),ev.clientX,ev.clientY);
+    });
+    el.addEventListener('mouseleave',function(){
+      _clearMapHighlight();
+      var tip=document.getElementById('map-tooltip');
+      if(tip){tip.style.display='none';}
+    });
   });
 
   mapZoomReset();
 }
 
+// Highlight with directional distinction:
+//   .lit       = hovered node itself
+//   .lit-dep   = nodes/edges that the hovered node depends on  (outgoing, orange)
+//   .lit-user  = nodes/edges that depend on the hovered node   (incoming, blue)
 function _highlightMapNode(nodeId,edges){
-  var related=new Set([nodeId]);
-  edges.forEach(function(e){
-    if(e.from===nodeId)related.add(e.to);
-    if(e.to===nodeId)related.add(e.from);
-  });
+  var deps=new Set(edges.filter(function(e){return e.from===nodeId;}).map(function(e){return e.to;}));
+  var users=new Set(edges.filter(function(e){return e.to===nodeId;}).map(function(e){return e.from;}));
   document.querySelectorAll('.gnode').forEach(function(el){
     var id=el.getAttribute('data-nid');
-    el.classList.remove('dimmed','lit');
-    if(id===nodeId){el.classList.add('lit');}
-    else if(!related.has(id)){el.classList.add('dimmed');}
+    el.classList.remove('dimmed','lit','lit-dep','lit-user');
+    if(id===nodeId)       {el.classList.add('lit');}
+    else if(deps.has(id)) {el.classList.add('lit-dep');}
+    else if(users.has(id)){el.classList.add('lit-user');}
+    else                  {el.classList.add('dimmed');}
   });
   document.querySelectorAll('.edge-path').forEach(function(path){
-    var from=path.getAttribute('data-from');
-    var to=path.getAttribute('data-to');
-    path.classList.remove('dimmed','lit');
-    if(from===nodeId||to===nodeId){path.classList.add('lit');}
-    else{path.classList.add('dimmed');}
+    var from=path.getAttribute('data-from'),to=path.getAttribute('data-to');
+    path.classList.remove('dimmed','lit','lit-dep','lit-user');
+    if(from===nodeId)     {path.classList.add('lit-dep');}
+    else if(to===nodeId)  {path.classList.add('lit-user');}
+    else                  {path.classList.add('dimmed');}
   });
 }
 
 function _clearMapHighlight(){
-  document.querySelectorAll('.gnode').forEach(function(el){el.classList.remove('dimmed','lit');});
-  document.querySelectorAll('.edge-path').forEach(function(path){path.classList.remove('dimmed','lit');});
+  document.querySelectorAll('.gnode').forEach(function(el){el.classList.remove('dimmed','lit','lit-dep','lit-user');});
+  document.querySelectorAll('.edge-path').forEach(function(path){path.classList.remove('dimmed','lit','lit-dep','lit-user');});
+}
+
+function _positionTooltip(tip,mx,my){
+  if(!tip){return;}
+  var tw=tip.offsetWidth,th=tip.offsetHeight;
+  var vw=window.innerWidth,vh=window.innerHeight;
+  var x=mx+16,y=my+16;
+  if(x+tw>vw-8){x=mx-tw-8;}
+  if(y+th>vh-8){y=my-th-8;}
+  tip.style.left=x+'px';
+  tip.style.top=y+'px';
+}
+
+function _showMapTooltip(nodeId,edges,nodeById,globalProviders,mx,my){
+  var node=nodeById[nodeId];
+  if(!node){return;}
+  var isGlob=node.group==='global_provider';
+  var deps=edges.filter(function(e){return e.from===nodeId;}).map(function(e){return e.to;});
+  var users=edges.filter(function(e){return e.to===nodeId;}).map(function(e){return e.from;});
+
+  var html='<div style="font-weight:bold;color:#f1c40f;margin-bottom:4px;font-family:monospace;word-break:break-all;">'+_esc(node.label)+'</div>';
+  if(isGlob){
+    var gp=(globalProviders||[]).find(function(p){return p.name===nodeId;});
+    if(gp){
+      html+='<div style="color:#888;margin-bottom:6px;font-size:0.68rem;">'+_esc(gp.providerType)
+        +' → <span style="color:#aaa;">'+_esc(gp.returnType)+'</span></div>';
+    }
+  }
+  if(deps.length){
+    html+='<div style="color:#e67e22;font-weight:bold;margin-bottom:2px;">→ Depends on ('+deps.length+'):</div>'
+      +'<ul style="margin:0 0 6px;padding-left:14px;">'
+      +deps.map(function(d){return '<li style="font-family:monospace;color:#ddd;">'+_esc(d)+'</li>';}).join('')
+      +'</ul>';
+  }
+  if(users.length){
+    html+='<div style="color:#3498db;font-weight:bold;margin-bottom:2px;">← Used by ('+users.length+'):</div>'
+      +'<ul style="margin:0;padding-left:14px;">'
+      +users.map(function(d){return '<li style="font-family:monospace;color:#ddd;">'+_esc(d)+'</li>';}).join('')
+      +'</ul>';
+  }
+  if(!deps.length&&!users.length){
+    html+='<div style="color:#555;font-style:italic;">No connections</div>';
+  }
+
+  var tip=document.getElementById('map-tooltip');
+  if(!tip){return;}
+  tip.innerHTML=html;
+  tip.style.display='block';
+  _positionTooltip(tip,mx,my);
 }
 
 function _selectNode(node,data){

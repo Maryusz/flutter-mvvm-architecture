@@ -34,14 +34,19 @@ This extension was created with the help of AI coding agents (Claude code, Codex
 
   - **Dependency Map** — interactive graph of all features and global Riverpod providers.
     Nodes are grouped in two zones (Features / Global Providers), colour-coded by role and
-    connection count. Three edge types distinguish feature-to-feature, feature-to-global and
-    global-to-feature dependencies.
+    connection count. Four edge types cover feature-to-feature, feature-to-global,
+    global-to-global and global-to-feature dependencies.
+    - **Global provider hierarchy** — the Global Providers zone is laid out by dependency depth:
+      foundational providers (depended upon by others) appear on the left, composed providers on
+      the right. Falls back to a usage-sorted flat grid when no inter-global edges exist.
+    - **Hover tooltip** — hovering any node shows a floating tooltip with its provider type,
+      the full list of providers it depends on (→, orange) and the full list of providers that
+      depend on it (←, blue). Dependency nodes glow orange, dependent nodes glow blue.
     - **Health bar** — live metrics strip above the map: feature count, global provider count,
       unused provider warnings (⚠) and circular dependency alerts (↺).
     - **Orphan detection** — global providers with zero usages are highlighted in amber.
     - **Cycle detection** — circular dependencies between features are highlighted in red (nodes
       and edges); a counter appears in the health bar.
-    - **Hover highlight** — hovering a node dims all unrelated nodes and edges.
     - **Auto-refresh** — the diagram refreshes automatically (~1.5 s) whenever a `.dart` file is saved.
 
   - **3-Layer Inspector** — click any feature in the map to open its layered anatomy:

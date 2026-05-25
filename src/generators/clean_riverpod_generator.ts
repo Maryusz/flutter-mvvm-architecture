@@ -15,6 +15,7 @@ export async function createCleanRiverpodFeature(
 ): Promise<void> {
   const { featurePlural, featureSingular, classSingular, includeUseCases } = params;
   const classPlural = toPascalCase(featurePlural);
+  const repositoryProviderName = `${classPlural.charAt(0).toLowerCase()}${classPlural.slice(1)}RepositoryProvider`;
 
   // Folders to create (No widgets folder as requested)
   const folders = [
@@ -55,8 +56,11 @@ export async function createCleanRiverpodFeature(
 }
 `;
 
-  // 2. Datasource Interface (Empty as requested)
-  files[`lib/features/${featurePlural}/data/${featurePlural}_datasource_interface.dart`] = `abstract class ${classSingular}Datasource {
+  // 2. Datasource Interfaces (split local/remote to allow divergent contracts)
+  files[`lib/features/${featurePlural}/data/${featurePlural}_datasource_interface.dart`] = `abstract class Local${classSingular}DataSource {
+}
+
+abstract class Remote${classSingular}DataSource {
 }
 `;
 
@@ -64,12 +68,12 @@ export async function createCleanRiverpodFeature(
   files[`lib/features/${featurePlural}/data/local/local_${featurePlural}_datasource.dart`] = `import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../${featurePlural}_datasource_interface.dart';
 
-final local${classPlural}DatasourceProvider = Provider<Local${classPlural}Datasource>((ref) {
-  return Local${classPlural}Datasource();
+final local${classPlural}DataSourceProvider = Provider<Local${classPlural}DataSource>((ref) {
+  return Local${classPlural}DataSourceImpl();
 });
 
-class Local${classPlural}Datasource implements ${classSingular}Datasource {
-  Local${classPlural}Datasource();
+class Local${classPlural}DataSourceImpl implements Local${classSingular}DataSource {
+  Local${classPlural}DataSourceImpl();
 }
 `;
 
@@ -77,12 +81,12 @@ class Local${classPlural}Datasource implements ${classSingular}Datasource {
   files[`lib/features/${featurePlural}/data/remote/remote_${featurePlural}_datasource.dart`] = `import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../${featurePlural}_datasource_interface.dart';
 
-final remote${classPlural}DatasourceProvider = Provider<Remote${classPlural}Datasource>((ref) {
-  return Remote${classPlural}Datasource();
+final remote${classPlural}DataSourceProvider = Provider<Remote${classPlural}DataSource>((ref) {
+  return Remote${classPlural}DataSourceImpl();
 });
 
-class Remote${classPlural}Datasource implements ${classSingular}Datasource {
-  Remote${classPlural}Datasource();
+class Remote${classPlural}DataSourceImpl implements Remote${classSingular}DataSource {
+  Remote${classPlural}DataSourceImpl();
 }
 `;
 
@@ -92,9 +96,9 @@ import '../data/${featurePlural}_datasource_interface.dart';
 import '../data/local/local_${featurePlural}_datasource.dart';
 import '../data/remote/remote_${featurePlural}_datasource.dart';
 
-final ${featureSingular}RepositoryProvider = Provider<${classPlural}Repository>((ref) {
-  final localDs = ref.watch(local${classPlural}DatasourceProvider);
-  final remoteDs = ref.watch(remote${classPlural}DatasourceProvider);
+final ${repositoryProviderName} = Provider<${classPlural}Repository>((ref) {
+  final localDs = ref.watch(local${classPlural}DataSourceProvider);
+  final remoteDs = ref.watch(remote${classPlural}DataSourceProvider);
   return ${classPlural}RepositoryImpl(
     localDatasource: localDs,
     remoteDatasource: remoteDs,
@@ -105,12 +109,12 @@ abstract class ${classPlural}Repository {
 }
 
 class ${classPlural}RepositoryImpl implements ${classPlural}Repository {
-  final ${classSingular}Datasource _localDatasource;
-  final ${classSingular}Datasource _remoteDatasource;
+  final Local${classSingular}DataSource _localDatasource;
+  final Remote${classSingular}DataSource _remoteDatasource;
 
   ${classPlural}RepositoryImpl({
-    required ${classSingular}Datasource localDatasource,
-    required ${classSingular}Datasource remoteDatasource,
+    required Local${classSingular}DataSource localDatasource,
+    required Remote${classSingular}DataSource remoteDatasource,
   })  : _localDatasource = localDatasource,
         _remoteDatasource = remoteDatasource;
 }
@@ -123,7 +127,7 @@ import '../${featurePlural}_repository.dart';
 import '../models/${featureSingular}.dart';
 
 final get${classPlural}UseCaseProvider = Provider<Get${classPlural}>((ref) {
-  final repository = ref.watch(${featureSingular}RepositoryProvider);
+  final repository = ref.watch(${repositoryProviderName});
   return Get${classPlural}(repository);
 });
 
@@ -168,7 +172,7 @@ final ${featurePlural}StateProvider =
 class ${classPlural}Notifier extends AsyncNotifier<List<${classSingular}>> {
   @override
   Future<List<${classSingular}>> build() async {
-    final repository = ref.watch(${featureSingular}RepositoryProvider);
+    final repository = ref.watch(${repositoryProviderName});
     return [];
   }
 }

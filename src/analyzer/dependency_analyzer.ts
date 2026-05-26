@@ -231,6 +231,59 @@ export async function analyzeWorkspaceDependencies(
     }
   }
 
+  // ── Pass 3: global→global dependencies ──────────────────────────────────
+  const globalProviderNames = new Set(globalProvidersList.map(p => p.name));
+
+  // Group global providers by file for per-provider body slicing
+  const globalsByFile = new Map<string, DartProviderInfo[]>();
+  for (const gp of globalProvidersList) {
+    if (!gp.absolutePath) { continue; }
+    const list = globalsByFile.get(gp.absolutePath) || [];
+    list.push(gp);
+    globalsByFile.set(gp.absolutePath, list);
+  }
+
+  for (const [filePath, provsInFile] of globalsByFile) {
+    const content = contentCache.get(filePath);
+    if (!content) { continue; }
+
+    // Collect declaration positions to slice provider bodies correctly
+    const positions: { name: string; idx: number }[] = [];
+    const posRegex = /final\s+([A-Za-z0-9_]+Provider)\s*=/g;
+    let pm;
+    while ((pm = posRegex.exec(content)) !== null) {
+      if (globalProviderNames.has(pm[1])) {
+        positions.push({ name: pm[1], idx: pm.index });
+      }
+    }
+
+    for (let i = 0; i < positions.length; i++) {
+      const provName = positions[i].name;
+      const start = positions[i].idx;
+      const end = i + 1 < positions.length ? positions[i + 1].idx : content.length;
+      const body = content.substring(start, end);
+
+      const refCallRegex = /ref\s*\.\s*(watch|read|listen)\s*(?:<[^>]+>)?\s*\(\s*([A-Za-z0-9_]+Provider)\b/g;
+      let refM;
+      while ((refM = refCallRegex.exec(body)) !== null) {
+        const verb = refM[1] as "watch" | "read" | "listen";
+        const depName = refM[2];
+        if (depName !== provName && globalProviderNames.has(depName) && !RIVERPOD_TYPE_NAMES.has(depName)) {
+          addDependency(provName, depName, nodesMap, edgesSet, edgesList);
+          const provInfo = provsInFile.find(p => p.name === provName);
+          if (provInfo) {
+            if (!provInfo.dependencies) { provInfo.dependencies = []; }
+            if (!provInfo.dependencyDetails) { provInfo.dependencyDetails = []; }
+            if (!provInfo.dependencies.includes(depName)) {
+              provInfo.dependencies.push(depName);
+              provInfo.dependencyDetails!.push({ name: depName, type: verb });
+            }
+          }
+        }
+      }
+    }
+  }
+
   const cycles = _detectCycles(featuresList, edgesList);
 
   return {
